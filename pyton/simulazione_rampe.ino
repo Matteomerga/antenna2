@@ -1,0 +1,112 @@
+const unsigned long t1 = 1000;
+const unsigned long t2 = 2000;
+const unsigned long t3 = 15000;
+int i = 1;  //ATTENZIONE: indica l'incremento di corrente, modificare per avere rampa piu o meno accentuata
+int delta = 100;
+
+unsigned long previousMicros = 0;
+
+//stuct dei dati da inviare
+struct Mystruct {
+    int speed;
+    int voltage;
+    int current;
+    long int lat;
+    long int lng;
+    unsigned long int micro;
+    int verifica;
+};
+
+Mystruct payload;
+
+void setup() {
+    Serial.begin(115200);
+
+    // Initial payload setup
+    payload.speed = 0;
+    payload.voltage = 0;
+    payload.current = 0;
+    payload.lat = 45123456;
+    payload.lng = 9123456;
+    payload.micro = 0;
+}
+
+void loop() {
+    payload.speed = 0;
+    payload.current = 0;
+    unsigned long currentMicros = millis();
+
+    previousMicros = currentMicros;
+    while (currentMicros - previousMicros < t1) {
+        currentMicros = millis();
+        delay(delta);
+        Serial.write((uint8_t *)&payload, sizeof(payload));
+        stampa();
+    }
+
+    payload.speed = 10;
+    previousMicros = currentMicros;
+    while (currentMicros - previousMicros < t2) {
+        currentMicros = millis();
+        delay(delta);
+        Serial.write((uint8_t *)&payload, sizeof(payload));
+        stampa();
+    }
+
+    previousMicros = currentMicros;
+    while (currentMicros - previousMicros < t3) {
+        currentMicros = millis();
+        delay(delta);
+        payload.current = payload.current + i;
+        Serial.write((uint8_t *)&payload, sizeof(payload));
+        stampa();
+    }
+
+    payload.current = 0;
+    previousMicros = currentMicros;
+    while (currentMicros - previousMicros < t1) {
+        currentMicros = millis();
+        delay(delta);
+        Serial.write((uint8_t *)&payload, sizeof(payload));
+        stampa();
+    }
+
+    previousMicros = currentMicros;
+    while (currentMicros - previousMicros < t3) {
+        currentMicros = millis();
+        delay(delta);
+        payload.current = payload.current + i;
+        Serial.write((uint8_t *)&payload, sizeof(payload));
+        stampa();
+    }
+
+    payload.current = 0;
+    previousMicros = currentMicros;
+    while (currentMicros - previousMicros < t2) {
+        currentMicros = millis();
+        delay(delta);
+        Serial.write((uint8_t *)&payload, sizeof(payload));
+        stampa();
+    }
+
+    payload.speed = 0;
+    payload.current = 0;
+    previousMicros = currentMicros;
+    while (currentMicros - previousMicros < t2) {
+        currentMicros = millis();
+        delay(delta);
+        Serial.write((uint8_t *)&payload, sizeof(payload));
+        stampa();
+    }
+}
+
+void stampa() {
+    Serial.println(F("=== Pacchetto inviato ==="));
+    Serial.print(F("raw verifica:   ")); Serial.println(payload.verifica);
+    Serial.print(F("velocita:       ")); Serial.println(payload.speed);
+    Serial.print(F("voltage:        ")); Serial.println(payload.voltage);
+    Serial.print(F("current:        ")); Serial.println(payload.current);
+    Serial.print(F("lat (raw):      ")); Serial.println(payload.lat);
+    Serial.print(F("lng (raw):      ")); Serial.println(payload.lng);
+    Serial.print(F("micro:          ")); Serial.println(payload.micro);
+}
