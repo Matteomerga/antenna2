@@ -1,6 +1,7 @@
 const unsigned long t1 = 1000;
 const unsigned long t2 = 2000;
 const unsigned long t3 = 15000;
+const unsigned long t4 = 4000;
 int i = 1;  //ATTENZIONE: indica l'incremento di corrente, modificare per avere rampa piu o meno accentuata
 int delta = 100;
 
@@ -40,15 +41,17 @@ void loop() {
     while (currentMicros - previousMicros < t1) {
         currentMicros = millis();
         delay(delta);
+        payload.micro = micros();
         Serial.write((uint8_t *)&payload, sizeof(payload));
         stampa();
     }
 
     payload.speed = 10;
     previousMicros = currentMicros;
-    while (currentMicros - previousMicros < t2) {
+    while (currentMicros - previousMicros < t4) {
         currentMicros = millis();
         delay(delta);
+        payload.micro = micros();
         Serial.write((uint8_t *)&payload, sizeof(payload));
         stampa();
     }
@@ -58,6 +61,7 @@ void loop() {
         currentMicros = millis();
         delay(delta);
         payload.current = payload.current + i;
+        payload.micro = micros();
         Serial.write((uint8_t *)&payload, sizeof(payload));
         stampa();
     }
@@ -67,6 +71,7 @@ void loop() {
     while (currentMicros - previousMicros < t1) {
         currentMicros = millis();
         delay(delta);
+        payload.micro = micros();
         Serial.write((uint8_t *)&payload, sizeof(payload));
         stampa();
     }
@@ -76,15 +81,17 @@ void loop() {
         currentMicros = millis();
         delay(delta);
         payload.current = payload.current + i;
+        payload.micro = micros();
         Serial.write((uint8_t *)&payload, sizeof(payload));
         stampa();
     }
 
     payload.current = 0;
     previousMicros = currentMicros;
-    while (currentMicros - previousMicros < t2) {
+    while (currentMicros - previousMicros < t3) {
         currentMicros = millis();
         delay(delta);
+        payload.micro = micros();
         Serial.write((uint8_t *)&payload, sizeof(payload));
         stampa();
     }
@@ -95,12 +102,13 @@ void loop() {
     while (currentMicros - previousMicros < t2) {
         currentMicros = millis();
         delay(delta);
+        payload.micro = micros();
         Serial.write((uint8_t *)&payload, sizeof(payload));
         stampa();
     }
 }
-
-void stampa() {
+void stampa(){}
+void stampa1() {
     Serial.println(F("=== Pacchetto inviato ==="));
     Serial.print(F("raw verifica:   ")); Serial.println(payload.verifica);
     Serial.print(F("velocita:       ")); Serial.println(payload.speed);
