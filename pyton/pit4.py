@@ -14,8 +14,8 @@ import os
 #from reader import reader
 
 # --- CONFIGURAZIONE DELLA PORTA SERIALE ---
-PORTA_SERIAL = "/dev/tty.usbmodem101"
-BAUD_RATE = 500000    #deve essere quello di Arduino
+PORTA_SERIAL = "/dev/cu.usbserial-A5069RR4"
+BAUD_RATE = 115200    #deve essere quello di Arduino
 ser = serial.Serial(PORTA_SERIAL, BAUD_RATE, timeout=1) 
 FORMATO_DATI = "<fhhiiih"  # Formato dati ricevuti (22 byte totali)
 data_queue_rampa = queue.Queue() # Thread‐safe queue per passare i pacchetti di dati
@@ -53,7 +53,7 @@ def serial_reader(ser, stop_event):
                 velocita, voltage, current, lat, lon, micros, verifica = struct.unpack(FORMATO_DATI, data)
 
                 # mettiamo in coda se necessario
-                if velocita > 0:
+                if velocita >= 0:
                     data_queue_giro.put((velocita, voltage, current, lat, lon, micros))
                 if current > current_costante:
                     data_queue_rampa.put((velocita, voltage, current, lat, lon, micros))
@@ -119,6 +119,10 @@ def plotterrampa(stop_event):
         longitudine_arr   = np.array(longitudine_rampa)
         tempo_arr        = np.array(micros_rampa) / 1000000
 
+        if len(tempo_arr) < 2:
+            print("Rampa: dati insufficienti, salto grafico.")
+            continue
+
         #Calcolo il dt
         dt_arr = np.diff(tempo_arr) # Calcolo delle differenze temporali
 
@@ -165,9 +169,9 @@ def plotterrampa(stop_event):
         axs2[1].grid(True)
         plt.tight_layout()
         fname = f"plot2_{threading.current_thread().name}_{int(time.time())}.png"
-        fig1.savefig(fname)
+        fig2.savefig(fname)
         print(f"Salvato grafico in {fname}")
-        plt.close(fig1)
+        plt.close(fig2)
 
         #SVUOTO GLI ARRAY:
         velocita_rampa.clear()
@@ -243,7 +247,7 @@ def plottergiro(stop_event):
                 # tempo trascorso dall’inizio del giro
                     current_time = time.monotonic() - first_time
                     if(current_time-last_time) >= 0.5:
-                        dx = v * ((current_time-last_time)/1000000)
+                        dx = v * ((current_time-last_time))
                         x =  x + dx
                         print(f"\r{current_time:6.2f}s  {x:6.2f}m", end="")
                         last_time = current_time
@@ -286,7 +290,7 @@ def plottergiro(stop_event):
         energia_last= energia_arr
         if current_time < TEMPO_LIMITE:
 
-            if(energia_last == None):
+            if(energia_last is None):
                 energia_best1 = energia_arr
                 energia_best2 = energia_arr
                 #copio
@@ -391,9 +395,9 @@ def plottergiro(stop_event):
 
         plt.tight_layout()
         fname = f"plot2_{threading.current_thread().name}_{int(time.time())}.png"
-        fig1.savefig(fname)
+        fig2.savefig(fname)
         print(f"Salvato grafico in {fname}")
-        plt.close(fig1)
+        plt.close(fig2)
 
 
         #SVUOTO GLI ARRAY:
