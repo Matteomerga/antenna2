@@ -7,6 +7,8 @@ import numpy as np
 import threading
 import time
 import queue
+import csv
+import os
 #from plotterrampa import plotterrampa
 #from plottergiro import plotterrampa
 #from reader import reader
@@ -15,7 +17,7 @@ import queue
 PORTA_SERIAL = "/dev/tty.usbmodem101"
 BAUD_RATE = 500000    #deve essere quello di Arduino
 ser = serial.Serial(PORTA_SERIAL, BAUD_RATE, timeout=1) 
-FORMATO_DATI = "<fffiiih"  # Formato dati ricevuti (26 byte totali)
+FORMATO_DATI = "<fhhiiih"  # Formato dati ricevuti (22 byte totali)
 data_queue_rampa = queue.Queue() # Thread‐safe queue per passare i pacchetti di dati
 data_queue_giro = queue.Queue() # Thread‐safe queue per passare i pacchetti di dati
 stop_event = threading.Event() #Se stop_event.is_set == True ferma tutti i thread 
@@ -29,25 +31,42 @@ current_costante = 0  #corrente costante che la macchina consuma
 # -------------------------------------------------------------------------------------------------------------------------------
 # 1) THREAD READ SERIALE
 # -------------------------------------------------------------------------------------------------------------------------------
-def serial_reader(ser,stop_event):
-    try:
-        while not stop_event.is_set():  # Loop infinito per ricevere dati continuamente
-            data = ser.read(26)             # Leggi dimensione della struttura Mystruct
-            
-            if len(data) == 26:  # Se i dati letti sono esattamente 26 byte
+def serial_reader(ser, stop_event):
+    # path al desktop, cross-platform
+    desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+    file_path = os.path.join(desktop, "serial_data.csv")
+
+    # apro il file in scrittura, creo intestazione se file nuovo
+    is_new = not os.path.exists(file_path)
+    with open(file_path, mode='a', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        if is_new:
+            writer.writerow(["velocita", "voltage", "current", "lat", "lon", "micros"])
+            csvfile.flush()
+
+        try:
+            while not stop_event.is_set():
+                data = ser.read(22)
+                if len(data) != 22:
+                    continue
+
                 velocita, voltage, current, lat, lon, micros, verifica = struct.unpack(FORMATO_DATI, data)
-            else:
-                continue
-            if(velocita>0):
-                    data_queue_giro.put((velocita, voltage, current, lat, lon, micros)) # mettiamo in coda tutti i campi che ci servono
-            
-            if(current>current_costante):
-                data_queue_rampa.put((velocita, voltage, current, lat, lon, micros)) # mettiamo in coda tutti i campi che ci servono
-            
-    except Exception as e:
-        print("Serial reader error:", e)
-    finally:
-        ser.close()
+
+                # mettiamo in coda se necessario
+                if velocita >= 0:
+                    data_queue_giro.put((velocita, voltage, current, lat, lon, micros))
+                if current > current_costante:
+                    data_queue_rampa.put((velocita, voltage, current, lat, lon, micros))
+
+                # scrivo sempre i dati grezzi su CSV
+                writer.writerow([velocita, voltage, current, lat, lon, micros])
+                # assicuro che vengano flushati su disco
+                csvfile.flush()
+
+        except Exception as e:
+            print("Serial reader error:", e)
+        finally:
+            ser.close()
 
 
 # -------------------------------------------------------------------------------------------------------------------------------
@@ -129,7 +148,10 @@ def plotterrampa(stop_event):
         axs1[2].set_title('Energia vs Distanza')
         axs1[2].grid(True)
         plt.tight_layout()
-        plt.show()
+        fname = f"plot1_{threading.current_thread().name}_{int(time.time())}.png"
+        fig1.savefig(fname)
+        print(f"Salvato grafico in {fname}")
+        plt.close(fig1)
 
         #PLOT TENSIONE E CORRENTE
         fig2, axs2 = plt.subplots(2, 1, sharex=True, figsize=(8, 10))
@@ -142,7 +164,10 @@ def plotterrampa(stop_event):
         axs2[1].set_title('Corrente vs Distanza')   # corretto
         axs2[1].grid(True)
         plt.tight_layout()
-        plt.show()
+        fname = f"plot2_{threading.current_thread().name}_{int(time.time())}.png"
+        fig1.savefig(fname)
+        print(f"Salvato grafico in {fname}")
+        plt.close(fig1)
 
         #SVUOTO GLI ARRAY:
         velocita_rampa.clear()
@@ -338,7 +363,10 @@ def plottergiro(stop_event):
         axs1[2].legend()
         #
         plt.tight_layout()
-        plt.show()
+        fname = f"plot1_{threading.current_thread().name}_{int(time.time())}.png"
+        fig1.savefig(fname)
+        print(f"Salvato grafico in {fname}")
+        plt.close(fig1)
 
         # PLOT TENSIONE E CORRENTE
         fig2, axs2 = plt.subplots(2, 1, sharex=True, figsize=(8, 10))
@@ -362,7 +390,10 @@ def plottergiro(stop_event):
         axs2[1].legend()
 
         plt.tight_layout()
-        plt.show()
+        fname = f"plot2_{threading.current_thread().name}_{int(time.time())}.png"
+        fig1.savefig(fname)
+        print(f"Salvato grafico in {fname}")
+        plt.close(fig1)
 
 
         #SVUOTO GLI ARRAY:
