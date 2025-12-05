@@ -8,7 +8,7 @@ unsigned long previousMicros = 0;
 
 //stuct dei dati da inviare
 struct Mystruct {
-    int speed;
+    float speed;
     int voltage;
     int current;
     long int lat;
