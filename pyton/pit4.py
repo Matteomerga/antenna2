@@ -53,7 +53,7 @@ def serial_reader(ser, stop_event):
                 velocita, voltage, current, lat, lon, micros, verifica = struct.unpack(FORMATO_DATI, data)
 
                 # mettiamo in coda se necessario
-                if velocita >= 0:
+                if velocita > 0:
                     data_queue_giro.put((velocita, voltage, current, lat, lon, micros))
                 if current > current_costante:
                     data_queue_rampa.put((velocita, voltage, current, lat, lon, micros))
@@ -243,7 +243,7 @@ def plottergiro(stop_event):
                 # tempo trascorso dall’inizio del giro
                     current_time = time.monotonic() - first_time
                     if(current_time-last_time) >= 0.5:
-                        dx = v * (current_time-last_time)
+                        dx = v * ((current_time-last_time)/1000000)
                         x =  x + dx
                         print(f"\r{current_time:6.2f}s  {x:6.2f}m", end="")
                         last_time = current_time
