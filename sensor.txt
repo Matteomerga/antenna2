@@ -1,0 +1,6 @@
+SENSORS
+
+CURRENT AND VOLATGE
+spec to achive
+60 volt range and 0.1 volt resolution
+25 amp  range and 0.1 amp resolution
