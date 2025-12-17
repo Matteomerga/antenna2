@@ -96,7 +96,7 @@ void setup() {
 
   // Open SD file for writing
   digitalWrite(SD_CS_PIN, LOW);
-  dataFile = SD.open("datalog.txt", FILE_WRITE);
+  dataFile = SD.open("datalog.csv", FILE_WRITE);
   digitalWrite(SD_CS_PIN, HIGH);
 
 
@@ -174,13 +174,14 @@ void loop() {
 
     char dataStr[80];
     sprintf(dataStr,
-          "%f, %d, %d, %ld, %ld, %ld\n",
-          payload.velocita,   // float  -> %f
-          payload.voltage,    // int  -> %d
-          payload.current,    // int  -> %d
-          payload.lat,        // long -> %ld
-          payload.lng,        // long -> %ld
-          payload.micro       // long -> %ld
+      "%ld, %d, %d, %f, %ld, %ld\n",
+      payload.micro,       // long  -> %ld
+      payload.voltage,     // int   -> %d
+      payload.current,     // int   -> %d
+      payload.velocita,    // float -> %f
+      payload.lat,         // long  -> %ld
+      payload.lng          // long  -> %ld
+
     );
 
     dataFile.print(dataStr);
