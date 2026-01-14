@@ -31,7 +31,7 @@ Mystruct payload;
 
 void setup() {
   Serial.begin(500000);
-  while (!Serial) {}// Alcune schede richiedono di aspettare che la seriale sia disponibile
+  while (!Serial) {}
 
 
   // Verifica hardware
@@ -40,55 +40,44 @@ void setup() {
     while (1) {}
   }
 
+  //configurazione antenna
   radio.setPALevel(RF24_PA_MAX);
   radio.setPayloadSize(sizeof(payload));
   radio.setDataRate(RF24_250KBPS);
   radio.setAutoAck(false);
-
-  // Configurazione degli indirizzi
   radio.openWritingPipe(address[radioNumber]);         // Pipe 0 per invio
   radio.openReadingPipe(1, address[!radioNumber]);     // Pipe 1 per ricezione
-
   radio.startListening(); // Modalità ricezione
 }
 
 void loop() {
   uint8_t pipe;
 
-  if (radio.available(&pipe)) { //contorlla se il moduloNRF24 ha ricevuto quslcosa
+  if (radio.available(&pipe)) //contorlla se il moduloNRF24 ha ricevuto quslcosa
+  { 
     uint8_t bytes = radio.getPayloadSize();
     radio.read(&payload, bytes);
 
     // Invia i dati solo se il checksum è corretto
-    if (payload.verifica = payload.velocita + payload.voltage + payload.current + (payload.micro % 10000)) {
+    if (payload.verifica = payload.velocita + payload.voltage + payload.current + (payload.micro % 10000)) 
+    {
       //Serial.write((uint8_t *)&payload, sizeof(payload)); //invia i dati al computer
-
-          // Stampa i dati ricevuti in modo leggibile
-      Serial.println("---- Dati Ricevuti ----");
-      Serial.print("Velocità: ");
-      Serial.println(payload.velocita);
-
-      Serial.print("Voltaggio: ");
-      Serial.println(payload.voltage);
-
-      Serial.print("Corrente: ");
-      Serial.println(payload.current);
-
-      Serial.print("Latitudine (grezza): ");
-      Serial.println(payload.lat);  // verrà stampato come unsigned long int
-
-      Serial.print("Longitudine (grezza): ");
-      Serial.println(payload.lng);
-
-      Serial.print("Timestamp (us): ");
-      Serial.println(payload.micro);
-
-      Serial.print("Checksum (verifica): ");
-      Serial.println(payload.verifica);
-
-      Serial.println("------------------------\n");
+      stampa();
     }
   }
 
   delayMicroseconds(500);
+}
+
+
+void stampa()
+{
+    Serial.println(F("=== Pacchetto ricevuto ==="));
+    Serial.print(F("raw verifica:   ")); Serial.println(payload.verifica);
+    Serial.print(F("velocita:       ")); Serial.println(payload.velocita, 6);
+    Serial.print(F("voltage:        ")); Serial.println(payload.voltage);
+    Serial.print(F("current:        ")); Serial.println(payload.current);
+    Serial.print(F("lat (raw):      ")); Serial.println(payload.lat);
+    Serial.print(F("lng (raw):      ")); Serial.println(payload.lng);
+    Serial.print(F("micro:          ")); Serial.println(payload.micro);
 }
