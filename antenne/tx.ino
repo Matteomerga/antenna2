@@ -24,7 +24,7 @@ const unsigned long delta = 4000;
 
 
 float kv = 0.004605735;
-float ki = 0.004665127;// 0.00366;// 0.0001882;
+float ki = 0.004665127;
 unsigned long zeroCurr = 0;
 
 // Radio setup
@@ -51,9 +51,10 @@ const unsigned long tempoMaxFermo = 1000000UL;
 int j=0;
 int n_media=10;
 
-// simulazione dati
+
+unsigned long currentMicros = 0;
 unsigned long previousMicros = 0;
-unsigned long A;
+
 
 
 int i = 0;
@@ -70,36 +71,34 @@ struct Mystruct {
   int verifica;
 };
 
-
-
 Mystruct payload;
+
+
 
 void setup() {
   pinMode(currPin, INPUT);
   pinMode(voltPin, INPUT);
-
   pinMode(SD_CS_PIN, OUTPUT);
   pinMode(CSN_PIN, OUTPUT);
-  digitalWrite(SD_CS_PIN, HIGH);  // Disable SD for now
+  pinMode(ENCODER_PIN, INPUT);
+  attachInterrupt(digitalPinToInterrupt(ENCODER_PIN), calcolaVelocita, RISING);
+  digitalWrite(SD_CS_PIN, HIGH);  // Disable SD
 
 
   Serial.begin(500000);
   while (!Serial) {}
 
 
-// SD card initialization
+  // SD card initialization
   if (!SD.begin(SD_CS_PIN)) {
     Serial.println(F("Errore inizializzazione SD!"));
-   // while (0);
+    while (1);
   }
   Serial.println(F("Scheda SD inizializzata con successo!"));
-
   // Open SD file for writing
   digitalWrite(SD_CS_PIN, LOW);
   dataFile = SD.open("datalog.csv", FILE_WRITE);
   digitalWrite(SD_CS_PIN, HIGH);
-
-
   if (!dataFile) {
     Serial.println(F("Errore apertura file SD!"));
    // while (0);
@@ -115,11 +114,6 @@ void setup() {
     while (0);
   }
   Serial.println(F("Radio hardware pronto a trasmettere"));
-  
-
-  pinMode(ENCODER_PIN, INPUT);
-  attachInterrupt(digitalPinToInterrupt(ENCODER_PIN), calcolaVelocita, RISING);
-
   radio.setPALevel(RF24_PA_MAX);
   radio.setPayloadSize(sizeof(payload));
   radio.openWritingPipe(address[radioNumber]);
@@ -128,9 +122,13 @@ void setup() {
   radio.setAutoAck(false);
   radio.setDataRate(RF24_250KBPS);
 
+
+
   //Gps setup
   gpsSerial.begin(9600);
   Serial.println("In attesa del fix GPS...");
+
+
 
   // Initial payload setup
   payload.velocita = 0;
@@ -149,7 +147,7 @@ void setup() {
 }
 
 void loop() {
-  unsigned long currentMicros = micros();
+  currentMicros = micros();
 
   if (currentMicros - previousMicros >= delta) {
     previousMicros = currentMicros;
@@ -166,9 +164,8 @@ void loop() {
     
     // Send data via NRF24
     bool ACK = radio.write(&payload, sizeof(payload));
-    digitalWrite(CSN_PIN, HIGH);
 
-    // Write data to SD card
+    digitalWrite(CSN_PIN, HIGH);
     digitalWrite(SD_CS_PIN, LOW);
   
 
@@ -186,23 +183,24 @@ void loop() {
 
     dataFile.print(dataStr);
 
-    if (currentMicros > (currentMicrov + tempoMaxFermo)) {
 
+    if (currentMicros > (currentMicrov + tempoMaxFermo)) {
     velocitaCalcolata = 0;
     velocitaCalcolatam = 0;
     }
 
-    i++;
-    if (i > 300) {
+
+    if (i >= 300) {
       stampa();
       unsigned long B = millis();
       unsigned long C = B - A;
       Serial.println(C);
       Serial.println(F("300 pacchetti inviati"));
       i = 0;
-      A = millis();
+      unsigned long A = millis();
       dataFile.flush();
     }
+    i++;
 
   }
 
@@ -227,8 +225,6 @@ void stampaVelocita()
   Serial.print(velocitaCalcolata);
   Serial.print(" - Media: ");
   Serial.println(velocitaCalcolatam);
-
-  delay(1000);
 }
 
 
@@ -253,9 +249,6 @@ void calcolaVelocita() {
   currentMicrov = micros();
   deltatv = currentMicrov - lastMicrov;
   lastMicrov = currentMicrov; 
- 
-
-
   velocitaCalcolata = ((circonferenza / (float)n_fori) / (float)deltatv) * 1e6;
   
   
