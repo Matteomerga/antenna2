@@ -19,13 +19,13 @@
 const int voltPin = A2;
 const int currPin = A1;
 
-const unsigned long delta = 4000;
+const unsigned long delta = 100000;
+unsigned long A=0;
 
 
-
-float kv = 0.004605735;
-float ki = 0.004665127;
-unsigned long zeroCurr = 0;
+float kv = 0.0533154;
+float ki = - 0.073982;
+float zeroCurr = 0;
 
 // Radio setup
 RF24 radio(CE_PIN, CSN_PIN);
@@ -63,8 +63,8 @@ File dataFile; // SD file
 //stuct dei dati da inviare
 struct Mystruct {
   int velocita;
-  int voltage;
-  int current;
+  float voltage;
+  float current;
   unsigned long int lat;
   unsigned long int lng;
   unsigned long int micro;
@@ -85,7 +85,7 @@ void setup() {
   digitalWrite(SD_CS_PIN, HIGH);  // Disable SD
 
 
-  Serial.begin(500000);
+  Serial.begin(115200);
   while (!Serial) {}
 
 
@@ -101,7 +101,7 @@ void setup() {
   digitalWrite(SD_CS_PIN, HIGH);
   if (!dataFile) {
     Serial.println(F("Errore apertura file SD!"));
-   // while (0);
+    while (1);
   } else {
     Serial.println(F("File aperto per scrittura."));
   }
@@ -111,7 +111,7 @@ void setup() {
   digitalWrite(CSN_PIN, HIGH);
   if (!radio.begin()) {
     Serial.println(F("Radio hardware non risponde!"));
-    while (0);
+    while (1);
   }
   Serial.println(F("Radio hardware pronto a trasmettere"));
   radio.setPALevel(RF24_PA_MAX);
@@ -155,7 +155,7 @@ void loop() {
     digitalWrite(SD_CS_PIN, HIGH);
     digitalWrite(CSN_PIN, LOW);
 
-    payload.voltage = (analogRead(voltPin) - 1387) * kv;
+    payload.voltage = (analogRead(voltPin)) * kv;
     payload.current = (analogRead(currPin) - zeroCurr) * ki;
     payload.velocita = velocitaCalcolata;
     payload.micro = micros();
@@ -169,16 +169,19 @@ void loop() {
     digitalWrite(SD_CS_PIN, LOW);
   
 
-    char dataStr[80];
-    sprintf(dataStr,
-      "%ld, %d, %d, %f, %ld, %ld\n",
-      payload.micro,       // long  -> %ld
-      payload.voltage,     // int   -> %d
-      payload.current,     // int   -> %d
-      payload.velocita,    // float -> %f
-      payload.lat,         // long  -> %ld
-      payload.lng          // long  -> %ld
+    char dataStr[80];  
+    char vStr[10];
+    char cStr[10];
+    dtostrf(payload.voltage, 6, 2, vStr);
+    dtostrf(payload.current, 6, 2, cStr);
 
+    sprintf(dataStr, "%ld, %s, %s, %d, %ld, %ld\n",
+      payload.micro,
+      vStr,
+      cStr,
+      payload.velocita,
+      payload.lat,
+      payload.lng
     );
 
     dataFile.print(dataStr);
@@ -190,14 +193,10 @@ void loop() {
     }
 
 
-    if (i >= 300) {
+    if (i >= 10) {
       stampa();
-      unsigned long B = millis();
-      unsigned long C = B - A;
-      Serial.println(C);
-      Serial.println(F("300 pacchetti inviati"));
+      Serial.println(F("10 pacchetti inviati"));
       i = 0;
-      unsigned long A = millis();
       dataFile.flush();
     }
     i++;
@@ -246,6 +245,7 @@ void stampa()
 }
 
 void calcolaVelocita() {
+  //Serial.println("scatto");
   currentMicrov = micros();
   deltatv = currentMicrov - lastMicrov;
   lastMicrov = currentMicrov; 
@@ -261,4 +261,15 @@ void calcolaVelocita() {
 
     velocitaCalcolatam = (circonferenza / n_fori) / deltatvm * 1e6 * n_media;
   }
+}
+
+void stampa2()
+{
+    Serial.println(F("valori letti"));
+    Serial.print(F("tensione raw:       ")); Serial.println(analogRead(voltPin));
+    Serial.print(F("corrente raw:   ")); Serial.println(analogRead(currPin));
+    Serial.print(F("voltage:        ")); Serial.println(payload.voltage);
+    Serial.print(F("current:        ")); Serial.println(payload.current);
+
+
 }
