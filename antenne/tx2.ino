@@ -8,6 +8,7 @@
 #include <SoftwareSerial.h>
 #include <TinyGPS++.h>
 
+int block=0;
 
 // Pin definitions
 #define CE_PIN       6  // pin NRF24
@@ -21,11 +22,10 @@ const int currPin = A1;
 
 const int pacchetti_al_secondo = 10;
 const unsigned long delta = 1000000/pacchetti_al_secondo;
-int z = 1;
 
 float kv = 0.0533154;
 float ki = - 0.073982;
-float zeroCurr = 0;
+double zeroCurr = 512.2;
 float sumCurrent = 0;
 float sumVoltage = 0;
 int ncampioni = 0;
@@ -60,7 +60,8 @@ unsigned long previousMicros = 0;
 
 
 
-
+int fileNumber = 1;
+char fileName[15];
 
 
 //stuct dei dati da inviare
@@ -95,28 +96,40 @@ void setup() {
   // SD card initialization
   if (!SD.begin(SD_CS_PIN)) {
     Serial.println(F("Errore inizializzazione SD!"));
-    while (z);
+    while (block);
   }
-  Serial.println(F("Scheda SD inizializzata con successo!"));
+  else Serial.println(F("Scheda SD inizializzata con successo!"));
+
   // Open SD file for writing
   digitalWrite(SD_CS_PIN, LOW);
-  dataFile = SD.open("datalog.csv", FILE_WRITE);
+  while (true) {
+    sprintf(fileName, "%d.csv", fileNumber);
+
+    if (!SD.exists(fileName)) {
+      break;  // trovato numero libero
+    }
+
+    fileNumber++;
+  }
+
+  dataFile = SD.open(fileName, FILE_WRITE);
   digitalWrite(SD_CS_PIN, HIGH);
   if (!dataFile) {
     Serial.println(F("Errore apertura file SD!"));
-    while (z);
-  } else {
-    Serial.println(F("File aperto per scrittura."));
-  }
+    while (block);
+  } 
+  else Serial.println(F("File aperto per scrittura."));
+  
 
 
   // RF24 radio initialization
   digitalWrite(CSN_PIN, HIGH);
   if (!radio.begin()) {
     Serial.println(F("Radio hardware non risponde!"));
-    while (z);
+    while (block);
   }
-  Serial.println(F("Radio hardware pronto a trasmettere"));
+  else Serial.println(F("Radio hardware pronto a trasmettere"));
+
   radio.setPALevel(RF24_PA_MAX);
   radio.setPayloadSize(sizeof(payload));
   radio.openWritingPipe(address[radioNumber]);
@@ -134,19 +147,14 @@ void setup() {
 
 
   // Initial payload setup
-  payload.velocita = 0;
+  payload.velocita = 1;
   payload.voltage = 0;
   payload.current = 0;
   payload.lat = 45123456;
   payload.lng = 9123456;
   payload.micro = 0;
 
-
-  for (int i = 0; i < 100; i++) {
-    zeroCurr = zeroCurr + analogRead(currPin);
-    delay(1);
-  }
-  zeroCurr = zeroCurr / 100;
+  tara_zeroCurr();
 
 }
 
@@ -196,23 +204,19 @@ void loop() {
     dataFile.print(dataStr);
 
 
-    if (currentMicros > (currentMicrov + tempoMaxFermo)) {
-    velocitaCalcolata = 0;
-    velocitaCalcolatam = 0;
-    }
 
 
     if (i >= 10) {
-      stampa();
+      stampa1();
       Serial.println(F("10 pacchetti inviati"));
       i = 0;
       dataFile.flush();
     }
     i++;
 
-  ncampioni = 0;
-  sumVoltage = 0;
-  sumCurrent = 0;
+    ncampioni = 0;
+    sumVoltage = 0;
+    sumCurrent = 0;
   }
 
   ncampioni++;
@@ -264,7 +268,20 @@ void calcolaVelocita() {
   }
 }
 
-void stampa()
+void tara_zeroCurr()
+{
+  for (int i = 0; i < 30000; i++) {
+    zeroCurr = zeroCurr + analogRead(currPin) - 512;
+    delay(1);
+  }
+  zeroCurr = zeroCurr / 30000;
+  Serial.println(zeroCurr);
+  float gdg = zeroCurr * ki;
+  Serial.println(gdg);
+
+}
+
+void stampa1()
 {
   Serial.println(F("=== Pacchetto inviato ==="));
   Serial.print(F("raw verifica:   ")); Serial.println(payload.verifica);
@@ -278,7 +295,7 @@ void stampa()
 
 void stampa2()
 {
-  Serial.println(F("valori letti"));
+  Serial.println(F("=== valori letti ==="));
   Serial.print(F("tensione raw:   ")); Serial.println(analogRead(voltPin));
   Serial.print(F("corrente raw:   ")); Serial.println(analogRead(currPin));
   Serial.print(F("voltage:        ")); Serial.println(payload.voltage);
@@ -287,8 +304,8 @@ void stampa2()
 
 void stampa3()
 {
-  Serial.print("Velocità: ");
-  Serial.print(velocitaCalcolata);
-  Serial.print(" - Media: ");
-  Serial.println(velocitaCalcolatam);
+  Serial.println(F("=== valori velocita ==="));
+  Serial.print("Velocità: "); Serial.println(velocitaCalcolata);
+  Serial.print(" - Media: "); Serial.println(velocitaCalcolatam);
 }
+
