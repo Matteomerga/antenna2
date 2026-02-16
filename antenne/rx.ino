@@ -5,8 +5,9 @@
 #include "Arduino.h"
 
 // Pin CE e CSN per il modulo RF24
-#define CE_PIN 7
-#define CSN_PIN 8
+#define CE_PIN 10
+#define CSN_PIN 9
+#define led 8
 
 // Creazione oggetto radio
 RF24 radio(CE_PIN, CSN_PIN);
