@@ -1,4 +1,9 @@
-Data = readmatrix('datif1.csv');
+[filename, pathname] = uigetfile( ...
+    {'*.csv;', 'CSV file (*.csv)';
+     '*.xlsx',  'Excel Spreadsheet file (*.xlsx)'; ...
+     '*.*',  'All Files (*.*)'}, 'Pick a File to Import');
+full_filename = fullfile(pathname, filename);
+Data = readmatrix(full_filename);
 M = mylaps(Data);
 
 %M = equalize(M);
@@ -176,4 +181,5 @@ function[M] = mylaps(Data)
         
         prev = curr;
     end
+
 end
