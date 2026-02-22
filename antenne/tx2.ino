@@ -66,7 +66,7 @@ char fileName[15];
 
 //stuct dei dati da inviare
 struct Mystruct {
-  int velocita;
+  float velocita;
   float voltage;
   float current;
   unsigned long int lat;
