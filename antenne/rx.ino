@@ -18,9 +18,9 @@ bool radioNumber = 0;
 
 // Struct dati ricevuti (18 byte)
 struct Mystruct {
-  int velocita;
-  int voltage;
-  int current;
+  float velocita;
+  float voltage;
+  float current;
   unsigned long int lat;
   unsigned long int lng;
   unsigned long int micro;
