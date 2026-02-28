@@ -4,12 +4,14 @@
 #include "RF24.h"
 #include "Arduino.h"
 
-int stampa = 1;
+int stampa = 0;
 
 // Pin CE e CSN per il modulo RF24
 #define CE_PIN 10
 #define CSN_PIN 9
 #define led 8
+
+int i=0;
 
 // Creazione oggetto radio
 RF24 radio(CE_PIN, CSN_PIN);
@@ -35,6 +37,8 @@ Mystruct payload;
 void setup() {
   Serial.begin(115200);
   while (!Serial) {}
+
+  pinMode(led, OUTPUT);
 
 
   // Verifica hardware
@@ -66,13 +70,14 @@ void loop() {
     if (payload.verifica = payload.velocita + payload.voltage + payload.current + (payload.micro % 10000)) 
     {
       digitalWrite(led, HIGH);
-      if(1) stampa_dati(); 
+      if(stampa) stampa_dati(); 
       else Serial.write((uint8_t *)&payload, sizeof(payload)); //invia i dati al computer
-      delayMicroseconds(500);
       digitalWrite(led, LOW);
+
+
     }
   }
-
+  delayMicroseconds(500);
  
 }
 
