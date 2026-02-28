@@ -46,8 +46,8 @@ void setup() {
     Serial.println(F("radio hardware is not responding!!"));
     while (1) {}
   }
+  if(stampa) Serial.println(F("pronto!!"));
   
-  Serial.println(F("pronto!!"));
   //configurazione antenna
   radio.setPALevel(RF24_PA_MAX);
   radio.setPayloadSize(sizeof(payload));
