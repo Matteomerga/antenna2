@@ -11,12 +11,12 @@
 int block=0;
 
 // Pin definitions
-#define CE_PIN       6  // pin NRF24
-#define CSN_PIN      7 
-#define SD_CS_PIN    4  // Pin for SD module
+#define CE_PIN       9  // pin NRF24
+#define CSN_PIN      8 
+#define SD_CS_PIN    10  // Pin for SD module
 #define ENCODER_PIN  3
-#define TX_PIN       8
-#define RX_PIN       9
+#define TX_PIN       6
+#define RX_PIN       7
 const int voltPin = A2;
 const int currPin = A1;
 
