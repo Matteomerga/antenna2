@@ -4,6 +4,8 @@
 #include "RF24.h"
 #include "Arduino.h"
 
+int stampa = 1;
+
 // Pin CE e CSN per il modulo RF24
 #define CE_PIN 10
 #define CSN_PIN 9
@@ -16,7 +18,7 @@ RF24 radio(CE_PIN, CSN_PIN);
 uint8_t address[][6] = {"1Node", "2Node"};
 bool radioNumber = 0;
 
-// Struct dati ricevuti (18 byte)
+// Struct dati ricevuti
 struct Mystruct {
   float velocita;
   float voltage;
@@ -31,7 +33,7 @@ Mystruct payload;
 
 
 void setup() {
-  Serial.begin(500000);
+  Serial.begin(115200);
   while (!Serial) {}
 
 
@@ -40,7 +42,8 @@ void setup() {
     Serial.println(F("radio hardware is not responding!!"));
     while (1) {}
   }
-
+  
+  Serial.println(F("pronto!!"));
   //configurazione antenna
   radio.setPALevel(RF24_PA_MAX);
   radio.setPayloadSize(sizeof(payload));
@@ -62,16 +65,19 @@ void loop() {
     // Invia i dati solo se il checksum è corretto
     if (payload.verifica = payload.velocita + payload.voltage + payload.current + (payload.micro % 10000)) 
     {
-      //Serial.write((uint8_t *)&payload, sizeof(payload)); //invia i dati al computer
-      stampa();
+      digitalWrite(led, HIGH);
+      if(1) stampa_dati(); 
+      else Serial.write((uint8_t *)&payload, sizeof(payload)); //invia i dati al computer
+      delayMicroseconds(500);
+      digitalWrite(led, LOW);
     }
   }
 
-  delayMicroseconds(500);
+ 
 }
 
 
-void stampa()
+void stampa_dati()
 {
     Serial.println(F("=== Pacchetto ricevuto ==="));
     Serial.print(F("raw verifica:   ")); Serial.println(payload.verifica);
