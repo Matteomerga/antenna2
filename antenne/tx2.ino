@@ -15,8 +15,8 @@ int block=0;
 #define CSN_PIN      9 
 #define SD_CS_PIN    10  // Pin for SD module
 #define ENCODER_PIN  3
-#define TX_PIN       6
-#define RX_PIN       7
+#define TX_PIN       7
+#define RX_PIN       6
 const int voltPin = A2;
 const int currPin = A1;
 
