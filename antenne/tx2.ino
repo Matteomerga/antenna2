@@ -11,8 +11,8 @@
 int block=0;
 
 // Pin definitions
-#define CE_PIN       9  // pin NRF24
-#define CSN_PIN      8 
+#define CE_PIN       8  // pin NRF24
+#define CSN_PIN      9 
 #define SD_CS_PIN    10  // Pin for SD module
 #define ENCODER_PIN  3
 #define TX_PIN       6
