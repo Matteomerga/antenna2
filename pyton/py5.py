@@ -1,5 +1,5 @@
 import matplotlib
-matplotlib.use('Agg')  # Usa backend non-interattivo per evitare GUI nei thread
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import serial
 import struct
@@ -9,40 +9,75 @@ import time
 import queue
 import csv
 import os
-#from plotterrampa import plotterrampa
-#from plottergiro import plotterrampa
-#from reader import reader
+import tkinter as tk
 
 # --- CONFIGURAZIONE DELLA PORTA SERIALE ---
-PORTA_SERIAL = "/dev/cu.usbserial-A5069RR4"
-BAUD_RATE = 115200    #deve essere quello di Arduino
-ser = serial.Serial(PORTA_SERIAL, BAUD_RATE, timeout=1) 
-FORMATO_DATI = "<fffiiih"  
+PORTA_SERIAL = "/dev/cu.usbmodem101"
+#PORTA_SERIAL = "/dev/tty.usbserial-A5069RR4"
+BAUD_RATE = 115200
+ser = serial.Serial(PORTA_SERIAL, BAUD_RATE, timeout=1)
+FORMATO_DATI = "<fffiiih"
 PACCHETTO_SIZE = struct.calcsize(FORMATO_DATI)
-data_queue_rampa = queue.Queue() # Thread‐safe queue per passare i pacchetti di dati
-data_queue_giro = queue.Queue() # Thread‐safe queue per passare i pacchetti di dati
-stop_event = threading.Event() #Se stop_event.is_set == True ferma tutti i thread 
 
-# --- DEFINIZIONE DEGLI ARRAY RAMPA---
-current_costante = 0.5  #corrente costante che la macchina consuma
+# code thread-safe per rampa e giro
+data_queue_rampa = queue.Queue()
+data_queue_giro = queue.Queue()
+stop_event = threading.Event()
 
-# --- DEFINIZIONE DELLA CARTELLA GLOBALE PER FILE E GRAFICI ---
+# corrente costante per rampa
+current_costante = 0.4
+
+# cartella desktop per dati e grafici
 desktop = os.path.join(os.path.expanduser("~"), "Desktop")
 FOLDER_PATH = os.path.join(desktop, "dati")
 os.makedirs(FOLDER_PATH, exist_ok=True)
 
 
+pacchetti_da_ricevere = 10
+pacchetti_ricevuti = 0
+
+
+# --- DASHBOARD ---
+t_aggiornamento_dashboard = 500  # ms
+root = tk.Tk()
+root.title("Dashboard Arduino Live")
+root.geometry("600x400")
+
+vel_label = tk.Label(root, text="Velocità: ---", font=("Helvetica", 50))
+volt_label = tk.Label(root, text="Tensione: ---", font=("Helvetica", 50))
+curr_label = tk.Label(root, text="Corrente: ---", font=("Helvetica", 50))
+time_label = tk.Label(root, text="Tempo: ---", font=("Helvetica", 50))
+pacchetti_persi_label = tk.Label(root, text="Pacchetti persi: ---", font=("Helvetica", 50))
+
+vel_label.pack(pady=10)
+volt_label.pack(pady=10)
+curr_label.pack(pady=10)
+time_label.pack(pady=10)
+pacchetti_persi_label.pack(pady=10)
+
+labels = {'vel': vel_label, 'volt': volt_label, 'curr': curr_label, 'time': time_label, 'pacchetti persi': pacchetti_persi_label}
+
+dashboard_vel = 0.0
+dashboard_volt = 0.0
+dashboard_curr = 0.0
+dashboard_time = 0.0
+
+def update_dashboard():
+    global pacchetti_ricevuti
+    pacchetti_persi = pacchetti_da_ricevere - (pacchetti_ricevuti * 1000 // t_aggiornamento_dashboard)
+    pacchetti_ricevuti = 0
+    labels['vel'].config(text=f"Velocità: {dashboard_vel:.2f} m/s")
+    labels['volt'].config(text=f"Tensione: {dashboard_volt:.2f} V")
+    labels['curr'].config(text=f"Corrente: {dashboard_curr:.2f} A")
+    labels['time'].config(text=f"Tempo: {dashboard_time:.2f} s")
+    labels['pacchetti persi'].config(text=f"Pacchetti persi: {pacchetti_persi}")
+    root.after(t_aggiornamento_dashboard, update_dashboard)
 
 # -------------------------------------------------------------------------------------------------------------------------------
-# 1) THREAD READ SERIALE
+# THREAD READ SERIALE
 # -------------------------------------------------------------------------------------------------------------------------------
-def serial_reader(ser, stop_event):
-    # path al desktop, cross-platform
-
-
+def serial_reader(ser, stop_event, root, labels):
     file_path = os.path.join(FOLDER_PATH, "serial_data.csv")
-
-    # apro il file in scrittura, creo intestazione se file nuovo
     is_new = not os.path.exists(file_path)
     with open(file_path, mode='a', newline='') as csvfile:
         writer = csv.writer(csvfile)
@@ -51,84 +86,103 @@ def serial_reader(ser, stop_event):
             csvfile.flush()
 
         try:
-            # --- Fase 1: attesa pacchetto valido ---
+            # sincronizzazione pacchetto valido
+            buffer = b''
             started = False
             print("Attendo pacchetto valido da Arduino...")
-
             while not started and not stop_event.is_set():
-                data = ser.read(PACCHETTO_SIZE)
-                if len(data) != PACCHETTO_SIZE:
-                    continue
-                try:
-                    v, volt, curr, lat, lon, micros, verifica = struct.unpack(FORMATO_DATI, data)
-                except:
-                    continue
+                buffer += ser.read(ser.in_waiting or 1)
 
-                checksum = sum(data[:-2]) & 0xFFFF
-                #if checksum == verifica and -10 <= volt <= 100 and -10 <= curr <= 100:
-                if -10 <= volt <= 100 and -10 <= curr <= 100:
-                    started = True
-                    print("Pacchetto valido ricevuto, sincronizzato.")
+                while len(buffer) >= PACCHETTO_SIZE:
+                    pacchetto = buffer[:PACCHETTO_SIZE]
+                    try:
+                        velocita, voltage, current, lat, lon, micros, verifica = struct.unpack(FORMATO_DATI, pacchetto)
+                    except struct.error:
+                        # scarta 1 byte e riprova
+                        buffer = buffer[1:]
+                        continue
 
-            # --- Fase 2: lettura continua dei pacchetti ---
+                    if -10.0 <= velocita <= 10.0 and -10 <= voltage <= 50.0 and -10 <= current <= 10.0:
+                        started = True
+                        print("Pacchetto valido ricevuto, sincronizzato.")
+                        break
+                    else:
+                        # pacchetto non valido, scarta il primo byte
+                        buffer = buffer[1:]
+
+            # lettura continua
+            global dashboard_vel, dashboard_volt, dashboard_curr, dashboard_time, pacchetti_ricevuti
             while not stop_event.is_set():
                 data = ser.read(PACCHETTO_SIZE)
                 if len(data) != PACCHETTO_SIZE:
                     continue
-
                 velocita, voltage, current, lat, lon, micros, verifica = struct.unpack(FORMATO_DATI, data)
+                pacchetti_ricevuti += 1
 
-                # mettiamo in coda se necessario
+                # code per rampa/giro
                 if velocita >= 0:
                     data_queue_giro.put((velocita, voltage, current, lat, lon, micros))
                 if current > current_costante:
                     data_queue_rampa.put((velocita, voltage, current, lat, lon, micros))
 
-                # scrivo sempre i dati grezzi su CSV
+                # scrivo su CSV
                 writer.writerow([velocita, voltage, current, lat, lon, micros])
-                # assicuro che vengano flushati su disco
                 csvfile.flush()
+
+                # --- aggiornamento dashboard tramite root.after ---
+
+
+                dashboard_vel = velocita
+                dashboard_volt = voltage
+                dashboard_curr = current
+                dashboard_time = micros / 1000000
+
 
         except Exception as e:
             print("Serial reader error:", e)
         finally:
             ser.close()
 
-
 # -------------------------------------------------------------------------------------------------------------------------------
 # 2) THREAD RAMPA
 # -------------------------------------------------------------------------------------------------------------------------------
 def plotterrampa(stop_event):
-    TEMPO_TIMEOUT = 3.0
     while not stop_event.is_set():  # → giri infiniti finché non interrompi il programma
 
         # 1) Inizio di un nuovo giro: resetto tutte le liste
         velocita_rampa     = []
         voltage_rampa      = []
-        current_rampa     = []
+        current_rampa      = []
         latitudine_rampa   = []
         longitudine_rampa  = []
         micros_rampa       = []
 
-        last_read_time = time.monotonic()
+        # =========================
+        # 1) ATTESA INIZIO RAMPA
+        # =========================
+        try:
+            v, volt, curr, lat, lon, micros = data_queue_rampa.get(timeout=1)
+        except queue.Empty:
+            continue  # nessuna rampa iniziata, continuo ad aspettare
 
+        # primo dato valido → inizio rampa
+        velocita_rampa.append(v)
+        voltage_rampa.append(volt)
+        current_rampa.append(curr)
+        latitudine_rampa.append(lat)
+        longitudine_rampa.append(lon)
+        micros_rampa.append(micros)
 
+        ultimo_dato = time.monotonic()
+        TEMPO_FINE_RAMPA = 2.0  # secondi senza dati prima di chiudere la rampa
+
+        # =========================
+        # 2) RAMPA ATTIVA
+        # =========================
         while True:
-            # timeout di 3 s dall'ultima lettura
-            remaining = TEMPO_TIMEOUT - (time.monotonic() - last_read_time)
-            if remaining <= 0:
-                # sono passati più di 3 s dall'ultima lettura
-                break
-
             try:
-                # blocca al massimo 'remaining' secondi
-                v, volt, curr, lat, lon, micros = data_queue_rampa.get(timeout=remaining)
-            except queue.Empty:
-                # scaduto il timeout senza nuovi dati
-                break
-            else:
-                last_read_time = time.monotonic()  # aggiorna il timestamp
-                # accumulo i singoli valori nelle rispettive liste
+                v, volt, curr, lat, lon, micros = data_queue_rampa.get(timeout=0.5)
+
                 velocita_rampa.append(v)
                 voltage_rampa.append(volt)
                 current_rampa.append(curr)
@@ -136,33 +190,37 @@ def plotterrampa(stop_event):
                 longitudine_rampa.append(lon)
                 micros_rampa.append(micros)
 
-        
-        #converto in numpy per fare le operazioni
+                ultimo_dato = time.monotonic()
+
+            except queue.Empty:
+                if time.monotonic() - ultimo_dato > TEMPO_FINE_RAMPA:
+                    break
+
+        # ======================================================
+        # Conversione in numpy per fare le operazioni e plot
+        # ======================================================
         velocita_arr      = np.array(velocita_rampa)
         voltage_arr       = np.array(voltage_rampa)
         current_arr       = np.array(current_rampa)
         latitudine_arr    = np.array(latitudine_rampa)
         longitudine_arr   = np.array(longitudine_rampa)
-        tempo_arr        = np.array(micros_rampa) / 1000000
+        tempo_arr         = np.array(micros_rampa) / 1000000
 
         if len(tempo_arr) < 2:
             print("Rampa: dati insufficienti, salto grafico.")
             continue
 
-        #Calcolo il dt
-        dt_arr = np.diff(tempo_arr) # Calcolo delle differenze temporali
+        # Calcolo dt e spostamento
+        dt_arr = np.diff(tempo_arr)
+        area_arr = (velocita_arr[:-1] + velocita_arr[1:]) / 2 * dt_arr
+        x_arr = np.concatenate(([0.0], np.cumsum(area_arr)))
 
-        #Calcolo la differenza di spostamento x_arr
-        area_arr = (velocita_arr [:-1] + velocita_arr [1:]) / 2 * dt_arr  #Calcolo delle aree dei trapezi
-        x_arr = np.concatenate(([0.0], np.cumsum(area_arr)))  #Somma cumulata per ottenere lo spostamento in ogni istante
+        # Potenza ed energia
+        potenza_arr = voltage_arr * current_arr
+        area_arr_energia = (potenza_arr[:-1] + potenza_arr[1:]) / 2 * dt_arr
+        energia_arr = np.concatenate(([0.0], np.cumsum(area_arr_energia)))
 
-        potenza_arr = voltage_arr*current_arr
-
-        #Calcolo l'energia
-        area_arr_energia = (potenza_arr [:-1] + potenza_arr [1:]) / 2 * dt_arr  #Calcolo delle aree dei trapezi
-        energia_arr = np.concatenate(([0.0], np.cumsum(area_arr_energia)))  #Somma cumulata per ottenere energia in ogni istante
-
-        #PLOT POTENZA ENERGIA E VELOCITA'
+        # PLOT POTENZA, ENERGIA E VELOCITA'
         fig1, axs1 = plt.subplots(3, 1, sharex=True, figsize=(8, 10))
         axs1[0].plot(x_arr, velocita_arr)
         axs1[0].set_ylabel('Velocità (m/s)')
@@ -183,15 +241,15 @@ def plotterrampa(stop_event):
         print(f"Salvato grafico in {fname}")
         plt.close(fig1)
 
-        #PLOT TENSIONE E CORRENTE
+        # PLOT TENSIONE E CORRENTE
         fig2, axs2 = plt.subplots(2, 1, sharex=True, figsize=(8, 10))
         axs2[0].plot(x_arr, voltage_arr)
         axs2[0].set_ylabel('Tensione (V)')
-        axs2[0].set_title('Tensione vs Distanza')   # corretto
+        axs2[0].set_title('Tensione vs Distanza')
         axs2[0].grid(True)
         axs2[1].plot(x_arr, current_arr)
-        axs2[1].set_ylabel('Corrente (A)')           # etichetta in amperè
-        axs2[1].set_title('Corrente vs Distanza')   # corretto
+        axs2[1].set_ylabel('Corrente (A)')
+        axs2[1].set_title('Corrente vs Distanza')
         axs2[1].grid(True)
         plt.tight_layout()
         fname = os.path.join(FOLDER_PATH, f"plot2_{threading.current_thread().name}_{int(time.time())}.png")
@@ -199,20 +257,19 @@ def plotterrampa(stop_event):
         print(f"Salvato grafico in {fname}")
         plt.close(fig2)
 
-        #SVUOTO GLI ARRAY:
+        # SVUOTO GLI ARRAY
         velocita_rampa.clear()
         voltage_rampa.clear()
         current_rampa.clear()
         latitudine_rampa.clear()
         longitudine_rampa.clear()
         micros_rampa.clear()
-        #--numpy
-        velocita_arr      = velocita_arr[:0]
-        voltage_arr       = voltage_arr[:0]
-        current_arr       = current_arr[:0]
-        latitudine_arr    = latitudine_arr[:0]
-        longitudine_arr   = longitudine_arr[:0]
-        tempo_arr         = tempo_arr[:0]
+        velocita_arr[:0]
+        voltage_arr[:0]
+        current_arr[:0]
+        latitudine_arr[:0]
+        longitudine_arr[:0]
+        tempo_arr[:0]
 
 
 
@@ -447,7 +504,7 @@ def plottergiro(stop_event):
 
 reader_t = threading.Thread(
     target=serial_reader,
-    args=(ser, stop_event),
+    args=(ser, stop_event, root, labels),  # <- aggiungi root e labels qui
     daemon=True
 )
 plotterrampa_t = threading.Thread(
@@ -464,17 +521,16 @@ plottergiro_t = threading.Thread(
 reader_t.start()
 plotterrampa_t.start()
 plottergiro_t.start()
+update_dashboard()
 
-# 4) Mantieni vivo il main thread
+
 
 try:
-    while True:
-        time.sleep(1)
+    root.mainloop()
 except KeyboardInterrupt:
-    print("\nInterrotto dall'utente: fermo i thread…")
     stop_event.set()
-
     reader_t.join()
-    plotterrampa_t.join()
-    plottergiro_t.join()
-    print("Tutti i thread sono terminati. Esco.")
+    # plotterrampa_t.join()
+    # plottergiro_t.join()
+    print("Programma terminato.")
+
