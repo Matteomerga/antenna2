@@ -1,9 +1,13 @@
-[filename, pathname] = uigetfile( ...
-    {'*.csv;', 'CSV file (*.csv)';
-     '*.xlsx',  'Excel Spreadsheet file (*.xlsx)'; ...
-     '*.*',  'All Files (*.*)'}, 'Pick a File to Import');
-full_filename = fullfile(pathname, filename);
-Data = readmatrix(full_filename);
+if exist("simulated_data.csv", "file")
+    Data = readmatrix("simulated_data.csv");
+else
+    [filename, pathname] = uigetfile( ...
+        {'*.csv;', 'CSV file (*.csv)';
+         '*.xlsx',  'Excel Spreadsheet file (*.xlsx)'; ...
+         '*.*',  'All Files (*.*)'}, 'Pick a File to Import');
+    full_filename = fullfile(pathname, filename);
+    Data = readmatrix(full_filename);
+end
 M = mylaps(Data);
 
 
