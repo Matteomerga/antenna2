@@ -6,39 +6,43 @@ full_filename = fullfile(pathname, filename);
 Data = readmatrix(full_filename);
 M = mylaps(Data);
 
+
 %M = equalize(M);
 
 Lap = cell2mat(M(1));
 
 LapData = uifigure(Name="Lap Data", NumberTitle="off");
 g = uigridlayout(LapData); %Cuts the window into a grid
-g.RowHeight = {'0.5x', 22, 22, 22, 22, 22, 22, '3x'};
+g.RowHeight = {'0.5x', 22, 22, 22, 22, 22, 22, 22, '3x'};
 g.ColumnWidth = {100,'1x'};
 ax = uiaxes(g); %We need this as the parents for the plot function
-ax.Layout.Row = [1 8];
+ax.Layout.Row = [1 9];
 ax.Layout.Column = 2;
 plot(ax, Lap(:,1), Lap(:,2), 'LineWidth',2.0);
+grid(ax, "on");
 xl = xlabel(ax, "Time (s)");
 yl = ylabel(ax, "Voltage (V)");
 LapNumber = uidropdown(g, ...
-    Items=["Lap1", "Lap2", "Lap3", "Lap4", "Lap5", "Lap6", "Lap7", "Lap8", "Lap9", "Lap10", "Lap11"], ...
+    Items=["Lap1", "Lap2", "Lap3", "Lap4", "Lap5", "Lap6", "Lap7", "Lap8", "Lap9", "Lap10", "Lap11", "Live Lap"], ...
     ItemsData=[1 2 3 4 5 6 7 8 9 10 11]);
 Lap2Number = uidropdown(g, ...
-    Items=["None", "Lap1", "Lap2", "Lap3", "Lap4", "Lap5", "Lap6", "Lap7", "Lap8", "Lap9", "Lap10", "Lap11"], ...
+    Items=["None", "Lap1", "Lap2", "Lap3", "Lap4", "Lap5", "Lap6", "Lap7", "Lap8", "Lap9", "Lap10", "Lap11", "Live Lap"], ...
     ItemsData=[0 1 2 3 4 5 6 7 8 9 10 11]);
 lbl = uilabel(g, "Text", "Compare to:");
 cbx = uicheckbox(g, "Text", "All");
+live = uicheckbox(g, "Text", "Live");
 DataType = uidropdown(g, ...
-    Items=["Voltage", "Current", "Speed", "Power", "Position"], ...
-    ItemsData=[2 3 4 7 5]);
+    Items=["Voltage", "Current", "Speed", "Energy", "Power", "Distance", "Position"], ...
+    ItemsData=[2 3 4 8 7 9 5]);
 Compare = uidropdown(g, ...
-    Items=["None", "Voltage", "Current", "Speed", "Power"], ...
-    ItemsData=[0 2 3 4 7], ...
+    Items=["None", "Voltage", "Current", "Speed", "Energy", "Power", "Distance"], ...
+    ItemsData=[0 2 3 4 8 7 9], ...
     ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, src, Lap2Number, cbx.Value));
 DataType.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, src, Compare, Lap2Number, cbx.Value);
 LapNumber.ValueChangedFcn=@(src,event) updatePlot(ax, M, src, DataType, Compare, Lap2Number, cbx.Value);
 Lap2Number.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, Compare, src, cbx.Value);
 cbx.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, src.Value);
+live.ValueChangedFcn=@(src,event) loopUpdate(src);
 
 %Poistioning of drop downs
 LapNumber.Layout.Row = 2;
@@ -53,8 +57,19 @@ Lap2Number.Layout.Row = 6;
 Lap2Number.Layout.Column = 1;
 cbx.Layout.Row = 7;
 cbx.Layout.Column = 1;
+cbx.Layout.Row = 8;
+cbx.Layout.Column = 1;
+
+function loopUpdate(flag)
+    while flag == true
+        Data = readmatrix(full_filename);
+        M = mylaps(Data);
+        updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, cbx.Value);
+    end
+end
 
 function updatePlot(ax, M, src, src2, src3, src4, flag)
+    grid(ax, "on");
     lgd = legend(ax);
     xl = xlabel(ax, "Time (s)");
     yl = ylabel(ax, "");
@@ -66,19 +81,19 @@ function updatePlot(ax, M, src, src2, src3, src4, flag)
     D = src2.Value; %Get value of second dropdown: The data type
     C = src3.Value; %Get value of third dropdown: Compare with what datatype
     C2 = src4.Value; %Get value of fourth dropdown: Compare with another Lap
-    if flag == 1
+    if flag == 1 %Plot everything
         src3.Value = 0;
         src3.Enable = "off";
         plotEverything(ax, M, D);
         return
     end
     data = cell2mat(M(val)); %NOT IN ANY IF STATEMENTS
-    if D == 5
+    if D == 5 %Position option
         plot(ax, data(:,5),data(:,6), 'LineWidth',2.0);
         xl.Visible = "off";
         return
     end
-    if C2~=0
+    if C2~=0 %Compare two laps
         src3.Value = 0;
         src3.Enable = "off";
         data2 = cell2mat(M(C2));
@@ -94,7 +109,7 @@ function updatePlot(ax, M, src, src2, src3, src4, flag)
         end
         return
     end
-    if C~=0
+    if C~=0 %Compare data types within one lap
         plot(ax, data(:,1),data(:,D),data(:,1),data(:,C), 'LineWidth',2.0);
         yl.Visible = "off";
         switch D
@@ -126,6 +141,11 @@ function updatePlot(ax, M, src, src2, src3, src4, flag)
         yl.String = "Current (mA)";
     case 4
         yl.String = "Speed (Km/h)";
+    case 8
+        yl.String = "Energy (mJ)";
+        lgd.Visible = "on";
+        lgd.String = "Total energy: " + data(end, D) ;
+
     end
 end
 
@@ -171,7 +191,9 @@ function[M] = mylaps(Data)
             temp = Data(startl: endl, :);
             smallTime = temp(1,1);
             temp(:,1) = (temp(:,1)-smallTime)/1e6;
-            temp(:,7) = temp(:,2).*temp(:,3);
+            temp(:,7) = temp(:,2).*temp(:,3); %Adding power column
+            temp(:,8) = cumtrapz(temp(:,1), temp(:,7)); %Energy
+            temp(:,9) = cumtrapz(temp(:,1), temp(:,4)); %Distance
             M{l} = temp;
             l = l+1;
             startl = 0; 
@@ -181,5 +203,10 @@ function[M] = mylaps(Data)
         
         prev = curr;
     end
-
 end
+
+%{
+function energy = energy(time, power)
+    
+end
+%}
