@@ -8,7 +8,14 @@ else
     full_filename = fullfile(pathname, filename);
     Data = readmatrix(full_filename);
 end
-M = mylaps(Data);
+
+t_last = 1;  %the function mylaps requires the last index of time array; for the first cycle this is 1
+cycle_rate = 5; %the view is updated every cycle_rate seconds
+%=========================================================== 
+%here it starts the cycle that updates the view every "cycle_rate" seconds
+while TRUE    %has to get modified: should there be a button to suspend the running, one to stop it and one to select live mode
+
+[M, t_last] = mylaps(Data, t_last);
 
 
 %M = equalize(M);
@@ -63,6 +70,9 @@ cbx.Layout.Row = 7;
 cbx.Layout.Column = 1;
 cbx.Layout.Row = 8;
 cbx.Layout.Column = 1;
+
+pause(cycle_rate);
+end   %end of while
 
 function loopUpdate(flag)
     while flag == true
@@ -174,7 +184,7 @@ function Me = equalize(M)
     end
 end
 
-function[M] = mylaps(Data)
+function[M, t_last] = mylaps(Data, t_last)
     M = cell(1,11);
     l = 1; % M index
     prev = 0;
@@ -187,7 +197,7 @@ function[M] = mylaps(Data)
             startl = t;    
         end
     
-        if prev > 0 && curr == 0
+        if (prev > 0 && curr == 0) || (t == length(Data(:,1)) && not(curr==0) )
             endl = t;
         end
         
@@ -207,6 +217,7 @@ function[M] = mylaps(Data)
         
         prev = curr;
     end
+    t_last = length(Data(:,1));
 end
 
 %{
@@ -214,3 +225,4 @@ function energy = energy(time, power)
     
 end
 %}
+
