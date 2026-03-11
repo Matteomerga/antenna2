@@ -136,21 +136,19 @@ function updatePlot(ax, M, src, src2, src3, src4, flag)
 
     if isempty(data)
         fprintf("Data is not ready yet \n")
-        for e=1:11
-            if isempty(cell2mat(M(e)))
-                src.Value = e-1;
-                break
-            end
-        end
+        src.Value = src.Value -1;
         
         return
     end
 
+
+    %Needs fixing
     if D == 5 %Position option
         plot(ax, data(:,5),data(:,6), 'LineWidth',2.0);
         xl.Visible = "off";
         return
     end
+
     if C2~=0 %Compare two laps
         src3.Value = 0;
         src3.Enable = "off";
