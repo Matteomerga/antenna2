@@ -106,7 +106,6 @@ def simulate_loop():
 
 
 
-threading.Thread(target=simulate_loop, daemon=True).start()
 
 
 # --- AVVIO DASHBOARD E SIMULAZIONE ---
