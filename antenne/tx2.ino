@@ -23,8 +23,9 @@ const int currPin = A1;
 const int pacchetti_al_secondo = 10;
 const unsigned long delta = 1000000/pacchetti_al_secondo;
 
-float kv = 0.0533154;
+float kv = 0.06104;  //vecchio valore 0.0533154
 float ki = - 0.073982;
+float v_offset = 1.4425;
 double zeroCurr = 512.2;
 float sumCurrent = 0;
 float sumVoltage = 0;
@@ -220,8 +221,8 @@ void loop() {
   }
 
   ncampioni++;
-  sumVoltage = sumVoltage + ((analogRead(currPin) - zeroCurr) * ki);
-  sumCurrent = sumCurrent + ((analogRead(voltPin)) * kv);
+  sumVoltage = sumVoltage + ((analogRead(voltPin) - v_offset) * kv);
+  sumCurrent = sumCurrent + ((analogRead(currPin) - zeroCurr) * ki);
 
 
 
