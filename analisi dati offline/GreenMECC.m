@@ -51,12 +51,13 @@ DataType = uidropdown(g, ...
     ItemsData=[2 3 4 8 7 9 5]);
 Compare = uidropdown(g, ...
     Items=["None", "Voltage", "Current", "Speed", "Energy", "Power", "Distance"], ...
-    ItemsData=[0 2 3 4 8 7 9], ...
-    ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, src, Lap2Number, cbx.Value));
-DataType.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, src, Compare, Lap2Number, cbx.Value);
+    ItemsData=[0 2 3 4 8 7 9]);
+
 LapNumber.ValueChangedFcn=@(src,event) updatePlot(ax, M, src, DataType, Compare, Lap2Number, cbx.Value);
 Lap2Number.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, Compare, src, cbx.Value);
 cbx.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, src.Value);
+DataType.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, src, Compare, Lap2Number, cbx.Value);
+Compare.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, src, Lap2Number, cbx.Value);
 live.Value = 1;
 
 %Poistioning of drop downs
@@ -75,10 +76,20 @@ cbx.Layout.Column = 1;
 live.Layout.Row = 8;
 live.Layout.Column = 1;
 
+currentLap = 1;
 while isgraphics(LapData)
+    LapNumber.ValueChangedFcn=@(src,event) lapChange(live, ax, M, src, DataType, Compare, Lap2Number, cbx.Value);
+    Lap2Number.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, Compare, src, cbx.Value);
+    cbx.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, src.Value);
+    DataType.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, src, Compare, Lap2Number, cbx.Value);
+    Compare.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, src, Lap2Number, cbx.Value);
     if live.Value
         Data = readmatrix(full_filename);
         [M, t_last] = mylaps(Data, t_last);
+        if ~isempty(M{currentLap+1})
+            currentLap = currentLap + 1;
+        end
+        LapNumber.Value = currentLap;
         updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, cbx.Value);
         %{
         try
@@ -108,6 +119,11 @@ function loopUpdate(flag)
 end
 %}
 
+function lapChange(live, ax, M, src, DataType, Compare, Lap2Number, Value)
+    live.Value = 0;
+    updatePlot(ax, M, src, DataType, Compare, Lap2Number, Value)
+end
+
 function updatePlot(ax, M, src, src2, src3, src4, flag)
     grid(ax, "on");
     lgd = legend(ax);
@@ -131,15 +147,22 @@ function updatePlot(ax, M, src, src2, src3, src4, flag)
         plotEverything(ax, M, D);
         return
     end
-
-    data = cell2mat(M(val)); %NOT IN ANY IF STATEMENTS
-
-    if isempty(data)
+    
+    %Check if data ready and avoid error and a crash
+    if isempty(M{val})
         fprintf("Data is not ready yet \n")
-        src.Value = src.Value -1;
+        
+        for e=1:11
+            if isempty(M{e})
+                src.Value = e-1;
+                break
+            end
+        end
         
         return
     end
+
+    data = cell2mat(M(val)); %NOT IN ANY IF STATEMENTS
 
 
     %Needs fixing
@@ -148,16 +171,18 @@ function updatePlot(ax, M, src, src2, src3, src4, flag)
         xl.Visible = "off";
         return
     end
-
+    
+    %Needs fixing
     if C2~=0 %Compare two laps
         src3.Value = 0;
         src3.Enable = "off";
-        data2 = cell2mat(M(C2));
-        if isempty(data2)
+        
+        if isempty(M{C2})
             fprintf("Data is not ready yet \n")
             src4.Value = 0;     
             return
         end
+        data2 = cell2mat(M{C2});
         plot(ax, data(:,1), data(:,D), data2(:,1), data2(:,D), 'LineWidth',2.0);
         xl.String = "Time (s)";
         switch D
@@ -167,6 +192,14 @@ function updatePlot(ax, M, src, src2, src3, src4, flag)
             yl.String = "Current (mA)";
         case 4
             yl.String = "Speed (Km/h)";
+        case 8
+            yl.String = "Energy (mJ)";
+            lgd.Visible = "on";
+            lgd.String = ["Total energy: " + data(end, D),"Total energy: " + data2(end, D)] ;
+        case 7
+            yl.String = "Power (mW)";
+        case 9
+            yl.String = "Distance (Km)";
         end
         return
     end
