@@ -23,8 +23,7 @@ const int currPin = A1;
 const int pacchetti_al_secondo = 10;
 const unsigned long delta = 1000000/pacchetti_al_secondo;
 
-float kv = 0.069566;  //valore nuovo 
-//float kv = 0.0533154
+float kv = 0.06104;
 float ki = - 0.073982;
 float v_offset = 1.4425;
 double zeroCurr = 512.2;
