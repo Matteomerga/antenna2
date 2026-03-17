@@ -91,7 +91,7 @@ void setup() {
   pinMode(SD_CS_PIN, OUTPUT);
   pinMode(CSN_PIN, OUTPUT);
   pinMode(ENCODER_PIN, INPUT);
-  attachInterrupt(digitalPinToInterrupt(ENCODER_PIN), calcolaVelocita, RISING);
+  attachInterrupt(digitalPinToInterrupt(ENCODER_PIN), calcolaFrequenza, RISING);
   digitalWrite(SD_CS_PIN, HIGH);  // Disable SD
 
 
@@ -269,6 +269,26 @@ void calcolaVelocita() {
     deltatvm = currentMicrov - lastMicrovm;
     lastMicrovm = currentMicrov;
     velocitaCalcolatam = (circonferenza / n_fori) / deltatvm * 1e6 * n_media;
+  }
+}
+
+void calcolaFrequenza() {
+  //Serial.println("scatto");
+  currentMicrov = micros();
+
+  deltatv = currentMicrov - lastMicrov;
+  lastMicrov = currentMicrov; 
+  velocitaCalcolata = (1 / ((float)deltatv / 1e6));
+  
+  
+  j++;
+  if(j==n_media)
+  {
+    j=0;
+    deltatvm = currentMicrov - lastMicrovm;
+    lastMicrovm = currentMicrov;
+    velocitaCalcolatam = (1 / ((float)deltatvm / 1e6 / (float)n_media));
+
   }
 }
 
