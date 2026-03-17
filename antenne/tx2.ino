@@ -31,6 +31,11 @@ float sumCurrent = 0;
 float sumVoltage = 0;
 int ncampioni = 0;
 
+char dataStr[80];  
+char vStr[10];
+char cStr[10];
+char velStr[10];
+
 
 // Radio setup
 RF24 radio(CE_PIN, CSN_PIN);
@@ -186,20 +191,19 @@ void loop() {
     digitalWrite(SD_CS_PIN, LOW);
   
 
-    char dataStr[80];  
-    char vStr[10];
-    char cStr[10];
     dtostrf(payload.voltage, 6, 2, vStr);
     dtostrf(payload.current, 6, 2, cStr);
+    dtostrf(payload.velocita, 6, 2, velStr);
 
-    sprintf(dataStr, "%ld, %s, %s, %d, %ld, %ld\n",
+    sprintf(dataStr, "%ld, %s, %s, %s, %ld, %ld\n",
       payload.micro,
       vStr,
       cStr,
-      payload.velocita,
+      velStr,
       payload.lat,
       payload.lng
     );
+
 
     dataFile.print(dataStr);
 
