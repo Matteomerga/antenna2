@@ -155,7 +155,6 @@ void setup() {
   payload.lng = 9123456;
   payload.micro = 0;
 
-  tara_zeroCurr();
 
 }
 
