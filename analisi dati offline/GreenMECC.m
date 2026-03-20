@@ -14,12 +14,14 @@ end
 Data = readmatrix(full_filename);
 
 t_last = 1;  %the function mylaps requires the last index of time array; for the first cycle this is 1
+M = cell(1,11);
+l = 1;
 cycle_rate = 2; %the view is updated every cycle_rate seconds
 %=========================================================== 
 %here it starts the cycle that updates the view every "cycle_rate" seconds
 
 
-[M, t_last] = mylaps(Data, t_last);
+[M, t_last, l] = mylaps(Data, M, t_last, l);
 
 
 Lap = cell2mat(M(1));
@@ -58,7 +60,7 @@ cbx.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, Compare,
 DataType.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, src, Compare, Lap2Number, cbx.Value, distance.Value);
 Compare.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, src, Lap2Number, cbx.Value, distance.Value);
 distance.ValueChangedFcn=@(src, event) updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, cbx.Value, src.Value);
-live.Value = 1;
+live.Value = 0;
 
 %Poistioning of drop downs
 LapNumber.Layout.Row = 2;
@@ -87,11 +89,19 @@ while isgraphics(LapData)
     Compare.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, src, Lap2Number, cbx.Value, distance.Value);
     if live.Value
         Data = readmatrix(full_filename);
-        [M, t_last] = mylaps(Data, t_last);
+        [M, t_last, l] = mylaps(Data, M, t_last, l);
+        for e=1:11
+            if isempty(M{e})
+                LapNumber.Value = e-1;
+                break
+            end
+        end
+%{        
         if ~isempty(M{currentLap+1})
             currentLap = currentLap + 1;
         end
-        LapNumber.Value = currentLap;
+%}
+        %LapNumber.Value = currentLap;
         updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, cbx.Value, distance.Value);
     end
     pause(cycle_rate);
@@ -260,13 +270,11 @@ function plotEverything(ax, M, D)
     ax.NextPlot = "replacechildren";
 end
 
-function[M, t_last] = mylaps(Data, t_last)
-    M = cell(1,11);
-    l = 1; % M index
+function[M, t_last, l] = mylaps(Data, M, t_last, l)
     prev = 0;
     startl=0;
     endl=0;
-    for t = 1:length( Data(:,1) )
+    for t = t_last:length( Data(:,1) )
         curr = Data(t,4);
     
         if prev==0 && curr > 0
@@ -275,6 +283,7 @@ function[M, t_last] = mylaps(Data, t_last)
     
         if (prev > 0 && curr == 0) || (t == length(Data(:,1)) && not(curr==0) )
             endl = t;
+            
         end
         
         if not(startl == 0) && not(endl == 0) %I modified the code here a bit to normalize the x axis
@@ -285,7 +294,11 @@ function[M, t_last] = mylaps(Data, t_last)
             temp(:,8) = cumtrapz(temp(:,1), temp(:,7)); %Energy
             temp(:,9) = cumtrapz(temp(:,1), temp(:,4)); %Distance
             M{l} = temp;
-            l = l+1;
+            if (t == length(Data(:,1)) && not(curr==0) )
+                %do nothing
+            else
+                l = l+1;
+            end 
             startl = 0; 
             endl = 0;
             %fprintf('lap %d completato\n',l);
