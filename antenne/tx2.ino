@@ -26,7 +26,7 @@ const unsigned long delta = 1000000/pacchetti_al_secondo;
 float kv = 0.0606203;
 float ki = - 0.073982;
 float v_offset = 1.4425;
-double zeroCurr = 512.2;
+double zeroCurr = 0;
 float sumCurrent = 0;
 float sumVoltage = 0;
 int ncampioni = 0;
@@ -160,6 +160,8 @@ void setup() {
   payload.lng = 9123456;
   payload.micro = 0;
 
+  tara_zeroCurr()
+
 
 }
 
@@ -249,7 +251,7 @@ void loop() {
 
 int checksum() {
   int micro4 = payload.micro % 10000;
-  return payload.velocita + payload.voltage + payload.current;
+  return payload.velocita + payload.voltage + payload.current + micro4;
 }
 
 
@@ -294,15 +296,12 @@ void calcolaFrequenza() {
 
 void tara_zeroCurr()
 {
-  for (int i = 0; i < 30000; i++) {
-    zeroCurr = zeroCurr + analogRead(currPin) - 512;
+  for (int i = 0; i < 3000; i++) {
+    zeroCurr = zeroCurr + analogRead(currPin);
     delay(1);
   }
-  zeroCurr = zeroCurr / 30000;
+  zeroCurr = zeroCurr / 3000;
   Serial.println(zeroCurr);
-  float gdg = zeroCurr * ki;
-  Serial.println(gdg);
-
 }
 
 void stampa1()
