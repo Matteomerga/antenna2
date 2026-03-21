@@ -92,7 +92,7 @@ def serial_reader(ser, stop_event, root, labels):
                         buffer = buffer[1:]
                         continue
 
-                    if -10.0 <= velocita <= 10.0 and -10 <= voltage <= 50.0 and -10 <= current <= 10.0:
+                    if velocita + voltage + current + micros%10000 == verifica:
                         started = True
                         print("Pacchetto valido ricevuto, sincronizzato.")
                         break
