@@ -4,7 +4,7 @@
 #include "RF24.h"
 #include "Arduino.h"
 
-int stampa = 1;
+int stampa = 0;
 
 // Pin CE e CSN per il modulo RF24
 #define CE_PIN 10
