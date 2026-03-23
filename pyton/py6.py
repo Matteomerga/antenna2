@@ -10,11 +10,11 @@ import os
 import tkinter as tk
 
 # --- CONFIGURAZIONE DELLA PORTA SERIALE ---
-PORTA_SERIAL = "/dev/cu.usbmodem101"
+PORTA_SERIAL = "COM4"                     #  potrebbe esserci errore sulla porta, verificare su arduino IDE la porta
 #PORTA_SERIAL = "/dev/tty.usbserial-A5069RR4"
 BAUD_RATE = 115200
 ser = serial.Serial(PORTA_SERIAL, BAUD_RATE, timeout=1)
-FORMATO_DATI = "<fffiiih"
+FORMATO_DATI = "<ffffiiih"
 PACCHETTO_SIZE = struct.calcsize(FORMATO_DATI)
 
 stop_event = threading.Event()
@@ -25,7 +25,7 @@ FOLDER_PATH = os.path.join(desktop, "dati")
 os.makedirs(FOLDER_PATH, exist_ok=True)
 
 
-pacchetti_da_ricevere = 10
+pacchetti_da_ricevere = 10            # eventualmente modificare insieme ai pacchetti inviati da arduino
 pacchetti_ricevuti = 0
 
 
@@ -38,20 +38,23 @@ root.geometry("600x400")
 vel_label = tk.Label(root, text="Velocità: ---", font=("Helvetica", 50))
 volt_label = tk.Label(root, text="Tensione: ---", font=("Helvetica", 50))
 curr_label = tk.Label(root, text="Corrente: ---", font=("Helvetica", 50))
+currMotor_label = tk.Label(root, text="CorrenteMotore: ---", font=("Helvetica", 50))
 time_label = tk.Label(root, text="Tempo: ---", font=("Helvetica", 50))
 pacchetti_persi_label = tk.Label(root, text="Pacchetti persi: ---", font=("Helvetica", 50))
 
 vel_label.pack(pady=10)
 volt_label.pack(pady=10)
 curr_label.pack(pady=10)
+currMotor_label.pack(pady=10)
 time_label.pack(pady=10)
 pacchetti_persi_label.pack(pady=10)
 
-labels = {'vel': vel_label, 'volt': volt_label, 'curr': curr_label, 'time': time_label, 'pacchetti persi': pacchetti_persi_label}
+labels = {'vel': vel_label, 'volt': volt_label, 'curr': curr_label, 'currMotor': currMotor_label, 'time': time_label, 'pacchetti persi': pacchetti_persi_label}
 
 dashboard_vel = 0.0
 dashboard_volt = 0.0
 dashboard_curr = 0.0
+dashboard_currMotor = 0.0
 dashboard_time = 0.0
 
 def update_dashboard():
@@ -61,6 +64,7 @@ def update_dashboard():
     labels['vel'].config(text=f"Velocità: {dashboard_vel:.2f} m/s")
     labels['volt'].config(text=f"Tensione: {dashboard_volt:.2f} V")
     labels['curr'].config(text=f"Corrente: {dashboard_curr:.2f} A")
+    labels['currMotor'].config(text=f"CorrenteMotore: {dashboard_curr:.2f} A")
     labels['time'].config(text=f"Tempo: {dashboard_time:.2f} s")
     labels['pacchetti persi'].config(text=f"Pacchetti persi: {pacchetti_persi}")
     root.after(t_aggiornamento_dashboard, update_dashboard)
@@ -72,7 +76,7 @@ def serial_reader(ser, stop_event, root, labels):
     with open(file_path, mode='a', newline='') as csvfile:
         writer = csv.writer(csvfile)
         if is_new:
-            writer.writerow(["micros", "voltage", "current", "velocita", "lat", "lon"])
+            writer.writerow(["micros", "voltage", "current", "currentMotor", "velocita", "lat", "lon"])
             csvfile.flush()
 
         try:
@@ -86,7 +90,7 @@ def serial_reader(ser, stop_event, root, labels):
                 while len(buffer) >= PACCHETTO_SIZE:
                     pacchetto = buffer[:PACCHETTO_SIZE]
                     try:
-                        velocita, voltage, current, lat, lon, micros, verifica = struct.unpack(FORMATO_DATI, pacchetto)
+                        velocita, voltage, current, currentMotor, lat, lon, micros, verifica = struct.unpack(FORMATO_DATI, pacchetto)
                     except struct.error:
                         # scarta 1 byte e riprova
                         buffer = buffer[1:]
@@ -106,12 +110,12 @@ def serial_reader(ser, stop_event, root, labels):
                 data = ser.read(PACCHETTO_SIZE)
                 if len(data) != PACCHETTO_SIZE:
                     continue
-                velocita, voltage, current, lat, lon, micros, verifica = struct.unpack(FORMATO_DATI, data)
+                velocita, voltage, current, currentMotor, lat, lon, micros, verifica = struct.unpack(FORMATO_DATI, data)
                 pacchetti_ricevuti += 1
 
 
                 # scrivo su CSV
-                writer.writerow([micros, voltage, current, velocita, lat, lon])
+                writer.writerow([micros, voltage, current, currentMotor, velocita, lat, lon])
                 csvfile.flush()
 
                 # --- aggiornamento dashboard tramite root.after ---
@@ -119,6 +123,7 @@ def serial_reader(ser, stop_event, root, labels):
                 dashboard_vel = velocita
                 dashboard_volt = voltage
                 dashboard_curr = current
+                dashboard_currMotor = currentMotor
                 dashboard_time = micros / 1000000
 
 
@@ -149,4 +154,6 @@ except KeyboardInterrupt:
     # plotterrampa_t.join()
     # plottergiro_t.join()
     print("Programma terminato.")
+
+
 
