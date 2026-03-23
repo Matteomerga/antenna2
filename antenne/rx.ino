@@ -67,7 +67,7 @@ void loop() {
     radio.read(&payload, bytes);
 
     // Invia i dati solo se il checksum è corretto
-    if (payload.verifica == payload.velocita + payload.voltage + payload.current + (payload.micro % 10000)) 
+    if (payload.verifica == checksum()) 
     {
       digitalWrite(led, HIGH);
       if(stampa) stampa_dati(); 
@@ -79,6 +79,11 @@ void loop() {
   }
   delayMicroseconds(500);
  
+}
+
+int checksum() {
+  int micro4 = payload.micro % 10000;
+  return payload.velocita + payload.voltage + payload.current + micro4;
 }
 
 
