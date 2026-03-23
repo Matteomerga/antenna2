@@ -44,8 +44,8 @@ Lap2Number = uidropdown(g, ...
 lbl = uilabel(g, "Text", "Compare to:");
 cbx = uicheckbox(g, "Text", "All");
 DataType = uidropdown(g, ...
-    Items=["Voltage", "Current", "Speed", "Energy", "Power", "Distance", "Position"], ...
-    ItemsData=[2 3 4 8 7 9 5]);
+    Items=["Voltage", "Motor Current", "Speed", "Energy", "Power", "Distance", "Position", "Battery Current"], ...
+    ItemsData=[2 3 4 8 7 9 5 10]);
 Compare = uidropdown(g, ...
     Items=["None", "Voltage", "Current", "Speed", "Energy", "Power", "Distance"], ...
     ItemsData=[0 2 3 4 8 7 9]);
@@ -58,7 +58,7 @@ cbx.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, Compare,
 DataType.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, src, Compare, Lap2Number, cbx.Value, distance.Value);
 Compare.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, src, Lap2Number, cbx.Value, distance.Value);
 distance.ValueChangedFcn=@(src, event) updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, cbx.Value, src.Value);
-live.Value = 0;
+live.Value = 1;
 
 %Poistioning of drop downs
 LapNumber.Layout.Row = 2;
@@ -88,10 +88,12 @@ while isgraphics(LapData)
     if live.Value
         Data = readmatrix(full_filename);
         [M, t_last] = mylaps(Data, t_last);
-        if ~isempty(M{currentLap+1})
-            currentLap = currentLap + 1;
+        for e=1:11
+            if isempty(M{e})
+                LapNumber.Value = e-1;
+                break
+            end
         end
-        LapNumber.Value = currentLap;
         updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, cbx.Value, distance.Value);
     end
     pause(cycle_rate);
@@ -177,7 +179,7 @@ function updatePlot(ax, M, src, src2, src3, src4, flag, vs)
         switch D
         case 2
             yl.String = "Voltage (V)";
-        case 3
+        case {3,10}
             yl.String = "Current (mA)";
         case 4
             yl.String = "Speed (m/s)";
@@ -198,7 +200,7 @@ function updatePlot(ax, M, src, src2, src3, src4, flag, vs)
         switch D
         case 2
             legend1 = "Voltage (V)";
-        case 3
+        case {3,10}
             legend1 = "Current (mA)";
         case 4
             legend1 = "Speed (m/s)";
@@ -212,7 +214,7 @@ function updatePlot(ax, M, src, src2, src3, src4, flag, vs)
         switch C
         case 2
             legend2 = "Voltage (V)";
-        case 3
+        case {3,10}
             legend2 = "Current (mA)";
         case 4
             legend2 = "Speed (m/s)";
@@ -231,11 +233,10 @@ function updatePlot(ax, M, src, src2, src3, src4, flag, vs)
     switch D
     case 2
         yl.String = "Voltage (V)";
-    case 3
+    case {3,10}
         yl.String = "Current (mA)";
     case 4
         yl.String = "Speed (m/s)";
-        ax.YLim = [0, 20];
     case 8
         yl.String = "Energy (mJ)";
         lgd.Visible = "on";
@@ -262,9 +263,6 @@ function plotEverything(ax, M, D)
 end
 
 function[M, t_last] = mylaps(Data, t_last)
-    Data(Data(:,5)== 45123456, 5) = NaN;
-    Data(Data(:,6)== 9123456, 6) = NaN;
-    
     M = cell(1,11);
     l = 1; % M index
     prev = 0;
