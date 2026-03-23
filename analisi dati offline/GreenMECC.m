@@ -263,6 +263,9 @@ function plotEverything(ax, M, D)
 end
 
 function[M, t_last] = mylaps(Data, t_last)
+    Data(Data(:,5)== 45123456, 5) = NaN;
+    Data(Data(:,6)== 9123456, 6) = NaN;
+    
     M = cell(1,11);
     l = 1; % M index
     prev = 0;
