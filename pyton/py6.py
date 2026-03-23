@@ -76,7 +76,7 @@ def serial_reader(ser, stop_event, root, labels):
     with open(file_path, mode='a', newline='') as csvfile:
         writer = csv.writer(csvfile)
         if is_new:
-            writer.writerow(["micros", "voltage", "current", "currentMotor", "velocita", "lat", "lon"])
+            writer.writerow(["micro", "voltage","motorCurrent", "speed", "lat", "lon", "extra1", "extra2", "extra3", "current",])
             csvfile.flush()
 
         try:
@@ -115,7 +115,7 @@ def serial_reader(ser, stop_event, root, labels):
 
 
                 # scrivo su CSV
-                writer.writerow([micros, voltage, current, currentMotor, velocita, lat, lon])
+                writer.writerow([micros, voltage, currentMotor, velocita, lat, lon, 0, 0, 0, current])
                 csvfile.flush()
 
                 # --- aggiornamento dashboard tramite root.after ---
@@ -154,6 +154,10 @@ except KeyboardInterrupt:
     # plotterrampa_t.join()
     # plottergiro_t.join()
     print("Programma terminato.")
+
+
+
+
 
 
 
