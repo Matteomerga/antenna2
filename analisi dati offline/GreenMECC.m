@@ -14,14 +14,12 @@ end
 Data = readmatrix(full_filename);
 
 t_last = 1;  %the function mylaps requires the last index of time array; for the first cycle this is 1
-M = cell(1,11);
-l = 1;
 cycle_rate = 2; %the view is updated every cycle_rate seconds
 %=========================================================== 
 %here it starts the cycle that updates the view every "cycle_rate" seconds
 
 
-[M, t_last, l] = mylaps(Data, M, t_last, l);
+[M, t_last] = mylaps(Data, t_last);
 
 
 Lap = cell2mat(M(1));
@@ -89,19 +87,11 @@ while isgraphics(LapData)
     Compare.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, src, Lap2Number, cbx.Value, distance.Value);
     if live.Value
         Data = readmatrix(full_filename);
-        [M, t_last, l] = mylaps(Data, M, t_last, l);
-        for e=1:11
-            if isempty(M{e})
-                LapNumber.Value = e-1;
-                break
-            end
-        end
-%{        
+        [M, t_last] = mylaps(Data, t_last);
         if ~isempty(M{currentLap+1})
             currentLap = currentLap + 1;
         end
-%}
-        %LapNumber.Value = currentLap;
+        LapNumber.Value = currentLap;
         updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, cbx.Value, distance.Value);
     end
     pause(cycle_rate);
@@ -245,6 +235,7 @@ function updatePlot(ax, M, src, src2, src3, src4, flag, vs)
         yl.String = "Current (mA)";
     case 4
         yl.String = "Speed (m/s)";
+        ax.YLim = [0, 20];
     case 8
         yl.String = "Energy (mJ)";
         lgd.Visible = "on";
@@ -270,11 +261,13 @@ function plotEverything(ax, M, D)
     ax.NextPlot = "replacechildren";
 end
 
-function[M, t_last, l] = mylaps(Data, M, t_last, l)
+function[M, t_last] = mylaps(Data, t_last)
+    M = cell(1,11);
+    l = 1; % M index
     prev = 0;
     startl=0;
     endl=0;
-    for t = t_last:length( Data(:,1) )
+    for t = 1:length( Data(:,1) )
         curr = Data(t,4);
     
         if prev==0 && curr > 0
@@ -283,7 +276,6 @@ function[M, t_last, l] = mylaps(Data, M, t_last, l)
     
         if (prev > 0 && curr == 0) || (t == length(Data(:,1)) && not(curr==0) )
             endl = t;
-            
         end
         
         if not(startl == 0) && not(endl == 0) %I modified the code here a bit to normalize the x axis
@@ -294,11 +286,7 @@ function[M, t_last, l] = mylaps(Data, M, t_last, l)
             temp(:,8) = cumtrapz(temp(:,1), temp(:,7)); %Energy
             temp(:,9) = cumtrapz(temp(:,1), temp(:,4)); %Distance
             M{l} = temp;
-            if (t == length(Data(:,1)) && not(curr==0) )
-                %do nothing
-            else
-                l = l+1;
-            end 
+            l = l+1;
             startl = 0; 
             endl = 0;
             %fprintf('lap %d completato\n',l);
