@@ -19,6 +19,9 @@ int block=0;
 #define RX_PIN       6
 const int voltPin = A2;
 const int currPin = A1;
+const uint8_t curr_motorPin = A3;  //ultima aggiunta: corrente misurata al motore
+//const int NUM_SAMPLES = 10;
+
 
 const int pacchetti_al_secondo = 10;
 const unsigned long delta = 1000000/pacchetti_al_secondo;
@@ -29,11 +32,23 @@ float v_offset = 1.4425;
 double zeroCurr = 0;
 float sumCurrent = 0;
 float sumVoltage = 0;
+float sumCurrentMotor = 0;
+float motorCurrentRaw = 0;
 int ncampioni = 0;
+const float CurrMotorConst     = 185.0; // Costante di conversione
+float CurrMotorOffset_voltage    = 2.65;
+// //float samplesMot[NUM_SAMPLES];        // buffer valori
+// int indexMot = 0;                    // indice corrente nel buffer
+// float totalMot = 0.0;                   // somma dei valori
+// float SenseAverageMot = 0.0;
+// bool CalibrationTimeEnded = 0;
+bool firstrun = 1;
+
 
 char dataStr[80];  
 char vStr[10];
 char cStr[10];
+char cmStr[10];
 char velStr[10];
 
 
@@ -75,6 +90,7 @@ struct Mystruct {
   float velocita;
   float voltage;
   float current;
+  float currentMotor;
   unsigned long int lat;
   unsigned long int lng;
   unsigned long int micro;
@@ -88,6 +104,7 @@ File dataFile; // SD file
 void setup() {
   pinMode(currPin, INPUT);
   pinMode(voltPin, INPUT);
+  pinMode(curr_motorPin, INPUT);
   pinMode(SD_CS_PIN, OUTPUT);
   pinMode(CSN_PIN, OUTPUT);
   pinMode(ENCODER_PIN, INPUT);
@@ -151,23 +168,54 @@ void setup() {
   Serial.println("In attesa del fix GPS...");
 
 
+  // // offset calibration for motor current
+  // for(int p = 0; p < 100; p++){               //first 100 values mean
+  //   sumCurrentMotor = sumCurrentMotor + analogRead(curr_motorPin);
+  //   delay(10);
+  // }
+  // CurrMotorOffset_voltage = sumCurrentMotor / 100;         //first 100 values mean
+  // sumCurrentMotor = 0;
+  // Serial.println(CurrMotorOffset_voltage);
+
 
   // Initial payload setup
   payload.velocita = 1;
   payload.voltage = 0;
   payload.current = 0;
+  payload.currentMotor = 0;
   payload.lat = 45123456;
   payload.lng = 9123456;
   payload.micro = 0;
 
   tara_zeroCurr();
 
-
+  Serial.println("Ready for the loop!");
 }
 
 void loop() {
   currentMicros = micros();
 
+ // const unsigned long CALIBRATION_TIME = 5000000; // 5 secondi
+   //float sense_voltage_Mot = currentRaw / 1023.0 * 5.0;
+  //Moving Avarage Mot
+  // Aggiorna somma e buffer
+ // totalMot -= samplesMot[indexMot]; // 1. Subtract the oldest sample from the total
+  //samplesMot[indexMot] = sense_voltage_Mot; // 2. Replace it with the new sample
+  //totalMot += sense_voltage_Mot; // 3. Add the new sample to the total
+  //indexMot = (indexMot + 1) % NUM_SAMPLES; // 4. Move the index to the next position (circular buffer)
+  //SenseAverageMot = totalMot / NUM_SAMPLES;// 5. Compute the average
+  
+  //if (currentMicros < CALIBRATION_TIME && not(CalibrationTimeEnded)) {
+    // Durante il warm-up, l'offset segue la media mobile
+    //CurrMotorOffset_voltage = SenseAverageMot; 
+  // }else{
+  //   CalibrationTimeEnded = 1;
+  // }
+
+  //currentMotor = (SenseAverageMot - CurrMotorOffset_voltage) / CurrMotorConst;
+  
+
+  
   if(currentMicros - previousMicros >= delta) {
     previousMicros = currentMicros;
 
@@ -181,6 +229,7 @@ void loop() {
 
     payload.voltage = sumVoltage / ncampioni;
     payload.current = sumCurrent / ncampioni;
+    payload.currentMotor = motorCurrentRaw;      //valore di misura del sensore grezzo, senza nessuna conversione
     payload.velocita = velocitaCalcolata;
     payload.micro = micros();
     payload.verifica = checksum();
@@ -195,12 +244,14 @@ void loop() {
 
     dtostrf(payload.voltage, 6, 2, vStr);
     dtostrf(payload.current, 6, 2, cStr);
+    dtostrf(payload.currentMotor, 6, 2, cmStr);
     dtostrf(payload.velocita, 6, 2, velStr);
 
-    sprintf(dataStr, "%ld, %s, %s, %s, %ld, %ld\n",
+    sprintf(dataStr, "%ld, %s, %s, %s, %s, %ld, %ld\n",
       payload.micro,
       vStr,
       cStr,
+      cmStr,
       velStr,
       payload.lat,
       payload.lng
@@ -223,14 +274,16 @@ void loop() {
     ncampioni = 0;
     sumVoltage = 0;
     sumCurrent = 0;
+    sumCurrentMotor = 0;
   }
 
   ncampioni++;
   sumVoltage = sumVoltage + ((analogRead(voltPin) - v_offset) * kv);
   sumCurrent = sumCurrent + ((analogRead(currPin) - zeroCurr) * ki);
-
-
-
+  //sumCurrentMotor = sumCurrentMotor + (( analogRead(curr_motorPin) - CurrMotorOffset_voltage ) / CurrMotorConst);
+  // float motorCurrentRawFloat = analogRead(curr_motorPin);
+  //float motorCurrentRawFloat = motorCurrentRawInt/1023.0 *5.0;
+  motorCurrentRaw = analogRead(curr_motorPin);
 
 
   while (gpsSerial.available()) {
@@ -274,7 +327,7 @@ void calcolaVelocita() {
   }
 }
 
-void calcolaFrequenza() {
+void calcolaFrequenza() {         
   //Serial.println("scatto");
   currentMicrov = micros();
 
@@ -311,6 +364,7 @@ void stampa1()
   Serial.print(F("velocita:       ")); Serial.println(payload.velocita, 6);
   Serial.print(F("voltage:        ")); Serial.println(payload.voltage);
   Serial.print(F("current:        ")); Serial.println(payload.current);
+  Serial.print(F("motorCurrent:        ")); Serial.println(payload.currentMotor);
   Serial.print(F("lat (raw):      ")); Serial.println(payload.lat);
   Serial.print(F("lng (raw):      ")); Serial.println(payload.lng);
   Serial.print(F("micro:          ")); Serial.println(payload.micro);
@@ -321,6 +375,7 @@ void stampa2()
   Serial.println(F("=== valori letti ==="));
   Serial.print(F("tensione raw:   ")); Serial.println(analogRead(voltPin));
   Serial.print(F("corrente raw:   ")); Serial.println(analogRead(currPin));
+  Serial.print(F("correntemotore raw:   ")); Serial.println(analogRead(curr_motorPin));
   Serial.print(F("voltage:        ")); Serial.println(payload.voltage);
   Serial.print(F("current:        ")); Serial.println(payload.current);
 }
@@ -331,4 +386,3 @@ void stampa3()
   Serial.print("Velocità: "); Serial.println(velocitaCalcolata);
   Serial.print(" - Media: "); Serial.println(velocitaCalcolatam);
 }
-
