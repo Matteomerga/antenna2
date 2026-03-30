@@ -1,2 +1,2 @@
 # ANTENNA's team
-![imm_antenne](immagini/imm_antenne.png)
+![imm_antenne](altro/immagini/imm_antenne.png)
