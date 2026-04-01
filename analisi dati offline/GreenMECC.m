@@ -22,8 +22,6 @@ cycle_rate = 2; %the view is updated every cycle_rate seconds
 [M, t_last] = mylaps(Data, t_last);
 
 
-Lap = cell2mat(M(1));
-
 LapData = uifigure(Name="Lap Data", NumberTitle="off");
 g = uigridlayout(LapData); %Cuts the window into a grid
 g.RowHeight = {'0.5x', 22, 22, 22, 22, 22, 22, 22, 22, '3x'};
@@ -31,13 +29,13 @@ g.ColumnWidth = {100,'1x'};
 ax = uiaxes(g); %We need this as the parents for the plot function
 ax.Layout.Row = [1 10];
 ax.Layout.Column = 2;
-plot(ax, Lap(:,1), Lap(:,2), 'LineWidth',2.0);
+plot(ax, Data(:,1), Data(:,2), 'LineWidth',2.0);
 grid(ax, "on");
 xl = xlabel(ax, "Time (s)");
 yl = ylabel(ax, "Voltage (V)");
 LapNumber = uidropdown(g, ...
-    Items=["Lap1", "Lap2", "Lap3", "Lap4", "Lap5", "Lap6", "Lap7", "Lap8", "Lap9", "Lap10", "Lap11"], ...
-    ItemsData=[1 2 3 4 5 6 7 8 9 10 11]);
+    Items=["No Sep", "Lap1", "Lap2", "Lap3", "Lap4", "Lap5", "Lap6", "Lap7", "Lap8", "Lap9", "Lap10", "Lap11"], ...
+    ItemsData=[0 1 2 3 4 5 6 7 8 9 10 11]);
 Lap2Number = uidropdown(g, ...
     Items=["None", "Lap1", "Lap2", "Lap3", "Lap4", "Lap5", "Lap6", "Lap7", "Lap8", "Lap9", "Lap10", "Lap11"], ...
     ItemsData=[0 1 2 3 4 5 6 7 8 9 10 11]);
@@ -49,16 +47,16 @@ DataType = uidropdown(g, ...
 Compare = uidropdown(g, ...
     Items=["None", "Voltage", "Current", "Speed", "Energy", "Power", "Distance"], ...
     ItemsData=[0 2 3 4 8 7 9]);
-live = uicheckbox(g, "Text", "Live");
+%live = uicheckbox(g, "Text", "Live");
 distance = uicheckbox(g, "Text", "vs Distance");
 
-LapNumber.ValueChangedFcn=@(src,event) updatePlot(ax, M, src, DataType, Compare, Lap2Number, cbx.Value, distance.Value);
+LapNumber.ValueChangedFcn=@(src,event) lapChange(ax, Data, M, src, DataType, Compare, Lap2Number, cbx.Value, distance.Value);
 Lap2Number.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, Compare, src, cbx.Value, distance.Value);
 cbx.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, src.Value, distance.Value);
 DataType.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, src, Compare, Lap2Number, cbx.Value, distance.Value);
 Compare.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, src, Lap2Number, cbx.Value, distance.Value);
 distance.ValueChangedFcn=@(src, event) updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, cbx.Value, src.Value);
-live.Value = 1;
+%live.Value = 1;
 
 %Poistioning of drop downs
 LapNumber.Layout.Row = 2;
@@ -73,37 +71,56 @@ Lap2Number.Layout.Row = 6;
 Lap2Number.Layout.Column = 1;
 cbx.Layout.Row = 7;
 cbx.Layout.Column = 1;
-live.Layout.Row = 8;
-live.Layout.Column = 1;
-distance.Layout.Row = 9;
+distance.Layout.Row = 8;
 distance.Layout.Column = 1;
+%{
+live.Layout.Row = 9;
+live.Layout.Column = 1;
+%}
 
 currentLap = 1;
 while isgraphics(LapData)
-    LapNumber.ValueChangedFcn=@(src,event) lapChange(live, ax, M, src, DataType, Compare, Lap2Number, cbx.Value, distance.Value);
-    Lap2Number.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, Compare, src, cbx.Value, distance.Value);
-    cbx.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, src.Value, distance.Value);
-    DataType.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, src, Compare, Lap2Number, cbx.Value, distance.Value);
-    Compare.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, src, Lap2Number, cbx.Value, distance.Value);
-    if live.Value
+    if LapNumber.Value == 0
+        LapNumber.ValueChangedFcn=@(src,event) lapChange(ax, Data, M, src, DataType, Compare, Lap2Number, cbx.Value, distance.Value);
+        Lap2Number.ValueChangedFcn=@(src,event) updatePlot(ax, Data, LapNumber, DataType, Compare, src, cbx.Value, distance.Value);
+        cbx.ValueChangedFcn=@(src,event) updatePlot(ax, Data, LapNumber, DataType, Compare, Lap2Number, src.Value, distance.Value);
+        DataType.ValueChangedFcn=@(src,event) updatePlot(ax, Data, LapNumber, src, Compare, Lap2Number, cbx.Value, distance.Value);
+        Compare.ValueChangedFcn=@(src,event) updatePlot(ax, Data, LapNumber, DataType, src, Lap2Number, cbx.Value, distance.Value);
+        distance.ValueChangedFcn=@(src, event) updatePlot(ax, Data, LapNumber, DataType, Compare, Lap2Number, cbx.Value, src.Value);
         Data = readmatrix(full_filename);
-        [M, t_last] = mylaps(Data, t_last);
+        %{
         for e=1:11
             if isempty(M{e})
                 LapNumber.Value = e-1;
                 break
             end
         end
+        %}
+        updatePlot(ax, Data, LapNumber, DataType, Compare, Lap2Number, cbx.Value, distance.Value);
+    else
+        Data = readmatrix(full_filename);
+        [M, t_last] = mylaps(Data, t_last);
+        LapNumber.ValueChangedFcn=@(src,event) lapChange(ax, Data, M, src, DataType, Compare, Lap2Number, cbx.Value, distance.Value);
+        Lap2Number.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, Compare, src, cbx.Value, distance.Value);
+        cbx.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, src.Value, distance.Value);
+        DataType.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, src, Compare, Lap2Number, cbx.Value, distance.Value);
+        Compare.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, src, Lap2Number, cbx.Value, distance.Value);
+        distance.ValueChangedFcn=@(src, event) updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, cbx.Value, src.Value);
         updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, cbx.Value, distance.Value);
     end
     pause(cycle_rate);
 end
 
 
-function lapChange(live, ax, M, src, DataType, Compare, Lap2Number, Value, vs)
-    live.Value = 0;
-    updatePlot(ax, M, src, DataType, Compare, Lap2Number, Value, vs)
+function lapChange(ax, Data, M, src, DataType, Compare, Lap2Number, Value, vs)
+    if src.Value == 0
+        updatePlot(ax, Data, src, DataType, Compare, Lap2Number, Value, vs)
+    else
+        updatePlot(ax, M, src, DataType, Compare, Lap2Number, Value, vs)
+    end
 end
+
+
 
 function updatePlot(ax, M, src, src2, src3, src4, flag, vs)
     grid(ax, "on");
@@ -127,7 +144,8 @@ function updatePlot(ax, M, src, src2, src3, src4, flag, vs)
             X = 9;
             xl.String = "Distance (m)";
     end
-    
+
+    %{
     if flag == 1 %Plot everything
         src3.Value = 0;
         src3.Enable = "off";
@@ -136,22 +154,27 @@ function updatePlot(ax, M, src, src2, src3, src4, flag, vs)
         plotEverything(ax, M, D);
         return
     end
-    
-    %Check if data ready and avoid error and a crash
-    if isempty(M{val})
-        fprintf("Data is not ready yet \n")
-        
-        for e=1:11
-            if isempty(M{e})
-                src.Value = e-1;
-                break
-            end
-        end
-        
-        return
-    end
+    %}
 
-    data = cell2mat(M(val)); %NOT IN ANY IF STATEMENTS
+    if val ~= 0
+        data = cell2mat(M(val));
+        %Check if data ready and avoid error and a crash
+        if isempty(M{val})
+            fprintf("Data is not ready yet \n")
+        
+            for e=1:11
+                if isempty(M{e})
+                    src.Value = e-1;
+                    break
+                end
+            end
+            return
+        end
+    else
+        src4.Value = 0;
+        src4.Enable = "off";
+        data = addData(M);
+    end
 
 
     %Needs fixing
@@ -180,15 +203,15 @@ function updatePlot(ax, M, src, src2, src3, src4, flag, vs)
         case 2
             yl.String = "Voltage (V)";
         case {3,10}
-            yl.String = "Current (mA)";
+            yl.String = "Current (A)";
         case 4
-            yl.String = "Speed (m/s)";
+            yl.String = "Speed (Km/h)";
         case 8
-            yl.String = "Energy (mJ)";
+            yl.String = "Energy (J)";
             lgd.Visible = "on";
             lgd.String = ["Total energy of Lap " + C2 + ": " + data2(end, D),"Total energy of Lap " + val + ": " + data(end, D)] ;
         case 7
-            yl.String = "Power (mW)";
+            yl.String = "Power (W)";
         case 9
             yl.String = "Distance (m)";
         end
@@ -201,13 +224,13 @@ function updatePlot(ax, M, src, src2, src3, src4, flag, vs)
         case 2
             legend1 = "Voltage (V)";
         case {3,10}
-            legend1 = "Current (mA)";
+            legend1 = "Current (A)";
         case 4
-            legend1 = "Speed (m/s)";
+            legend1 = "Speed (Km/h)";
         case 8
-            legend1 = "Energy (mJ)";
+            legend1 = "Energy (J)";
         case 7
-            legend1 = "Power (mW)";
+            legend1 = "Power (W)";
         case 9
             legend1 = "Distance (m)";
         end
@@ -215,13 +238,13 @@ function updatePlot(ax, M, src, src2, src3, src4, flag, vs)
         case 2
             legend2 = "Voltage (V)";
         case {3,10}
-            legend2 = "Current (mA)";
+            legend2 = "Current (A)";
         case 4
-            legend2 = "Speed (m/s)";
+            legend2 = "Speed (Km/h)";
         case 8
-            legend2 = "Energy (mJ)";
+            legend2 = "Energy (J)";
         case 7
-            legend2 = "Power (mW)";
+            legend2 = "Power (W)";
         case 9
             legend2 = "Distance (m)";
         end
@@ -234,15 +257,15 @@ function updatePlot(ax, M, src, src2, src3, src4, flag, vs)
     case 2
         yl.String = "Voltage (V)";
     case {3,10}
-        yl.String = "Current (mA)";
+        yl.String = "Current (A)";
     case 4
-        yl.String = "Speed (m/s)";
+        yl.String = "Speed (Km/h)";
     case 8
-        yl.String = "Energy (mJ)";
+        yl.String = "Energy (J)";
         lgd.Visible = "on";
         lgd.String = "Total energy: " + data(end, D) ;
     case 7
-        yl.String = "Power (mW)";
+        yl.String = "Power (W)";
     case 9
         yl.String = "Distance (m)";
 
@@ -262,10 +285,19 @@ function plotEverything(ax, M, D)
     ax.NextPlot = "replacechildren";
 end
 
+function fData = addData(Data)
+    smallTime = Data(1,1);
+    Data(:,1) = (Data(:,1) - smallTime)/1e6;
+    Data(:,7) = Data(:,2).*Data(:,10); %Adding power column
+    Data(:,8) = cumtrapz(Data(:,1), Data(:,7)); %Energy
+    Data(:,9) = cumtrapz(Data(:,1), Data(:,4)); %Distance
+
+    fData = Data;
+
+    return
+end
+
 function[M, t_last] = mylaps(Data, t_last)
-    Data(Data(:,5)== 45123456, 5) = NaN;
-    Data(Data(:,6)== 9123456, 6) = NaN;
-    
     M = cell(1,11);
     l = 1; % M index
     prev = 0;
@@ -284,11 +316,7 @@ function[M, t_last] = mylaps(Data, t_last)
         
         if not(startl == 0) && not(endl == 0) %I modified the code here a bit to normalize the x axis
             temp = Data(startl: endl, :);
-            smallTime = temp(1,1);
-            temp(:,1) = (temp(:,1)-smallTime)/1e6;
-            temp(:,7) = temp(:,2).*temp(:,3); %Adding power column
-            temp(:,8) = cumtrapz(temp(:,1), temp(:,7)); %Energy
-            temp(:,9) = cumtrapz(temp(:,1), temp(:,4)); %Distance
+            temp = addData(temp); %I made a seperate function so I can use else where in the code
             M{l} = temp;
             l = l+1;
             startl = 0; 
