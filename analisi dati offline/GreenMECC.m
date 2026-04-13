@@ -1,6 +1,28 @@
 clear
 clc
 
+%{
+===========================================================================
+This program will automatically search for files for the data and map to
+draw later.
+
+If no data file with name in the full_filename, it will prompt to select a
+folder.
+
+For the map, it searches with the name of tablepaths (1).mat. You can
+change it to whatever map data you have. Make sure the data is in decimals
+as the program is designed to get raw live longtitude and latitude data and
+converts it to decimal places.
+
+I am sure there will be problems and I will be available for feedback and
+help.
+
+current expected data input: time, voltage, Motor Current, speed, lat, lon,
+3 empty columns, Battery Current.
+
+===========================================================================
+%}
+
 if exist("simulated_data.csv", "file")
     full_filename = "simulated_data.csv";
 else
@@ -9,6 +31,13 @@ else
          '*.xlsx',  'Excel Spreadsheet file (*.xlsx)'; ...
          '*.*',  'All Files (*.*)'}, 'Pick a File to Import');
     full_filename = fullfile(pathname, filename);
+end
+
+if exist("tablepaths (1).mat","file")
+    Map = table2array(struct2array(load("tablepaths (1).mat")));
+else
+    fprintf("NO MAP DATA FOUND \n");
+    Map = [];
 end
 
 Data = readmatrix(full_filename);
@@ -50,12 +79,12 @@ Compare = uidropdown(g, ...
 %live = uicheckbox(g, "Text", "Live");
 distance = uicheckbox(g, "Text", "vs Distance");
 
-LapNumber.ValueChangedFcn=@(src,event) lapChange(ax, Data, M, src, DataType, Compare, Lap2Number, cbx.Value, distance.Value);
-Lap2Number.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, Compare, src, cbx.Value, distance.Value);
-cbx.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, src.Value, distance.Value);
-DataType.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, src, Compare, Lap2Number, cbx.Value, distance.Value);
-Compare.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, src, Lap2Number, cbx.Value, distance.Value);
-distance.ValueChangedFcn=@(src, event) updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, cbx.Value, src.Value);
+LapNumber.ValueChangedFcn=@(src,event) lapChange(ax, Data, M, src, DataType, Compare, Lap2Number, cbx.Value, distance.Value, Map);
+Lap2Number.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, Compare, src, cbx.Value, distance.Value, Map);
+cbx.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, src.Value, distance.Value, Map);
+DataType.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, src, Compare, Lap2Number, cbx.Value, distance.Value, Map);
+Compare.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, src, Lap2Number, cbx.Value, distance.Value, Map);
+distance.ValueChangedFcn=@(src, event) updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, cbx.Value, src.Value, Map);
 %live.Value = 1;
 
 %Poistioning of drop downs
@@ -81,12 +110,12 @@ live.Layout.Column = 1;
 currentLap = 1;
 while isgraphics(LapData)
     if LapNumber.Value == 0
-        LapNumber.ValueChangedFcn=@(src,event) lapChange(ax, Data, M, src, DataType, Compare, Lap2Number, cbx.Value, distance.Value);
-        Lap2Number.ValueChangedFcn=@(src,event) updatePlot(ax, Data, LapNumber, DataType, Compare, src, cbx.Value, distance.Value);
-        cbx.ValueChangedFcn=@(src,event) updatePlot(ax, Data, LapNumber, DataType, Compare, Lap2Number, src.Value, distance.Value);
-        DataType.ValueChangedFcn=@(src,event) updatePlot(ax, Data, LapNumber, src, Compare, Lap2Number, cbx.Value, distance.Value);
-        Compare.ValueChangedFcn=@(src,event) updatePlot(ax, Data, LapNumber, DataType, src, Lap2Number, cbx.Value, distance.Value);
-        distance.ValueChangedFcn=@(src, event) updatePlot(ax, Data, LapNumber, DataType, Compare, Lap2Number, cbx.Value, src.Value);
+        LapNumber.ValueChangedFcn=@(src,event) lapChange(ax, Data, M, src, DataType, Compare, Lap2Number, cbx.Value, distance.Value, Map);
+        Lap2Number.ValueChangedFcn=@(src,event) updatePlot(ax, Data, LapNumber, DataType, Compare, src, cbx.Value, distance.Value, Map);
+        cbx.ValueChangedFcn=@(src,event) updatePlot(ax, Data, LapNumber, DataType, Compare, Lap2Number, src.Value, distance.Value, Map);
+        DataType.ValueChangedFcn=@(src,event) updatePlot(ax, Data, LapNumber, src, Compare, Lap2Number, cbx.Value, distance.Value, Map);
+        Compare.ValueChangedFcn=@(src,event) updatePlot(ax, Data, LapNumber, DataType, src, Lap2Number, cbx.Value, distance.Value, Map);
+        distance.ValueChangedFcn=@(src, event) updatePlot(ax, Data, LapNumber, DataType, Compare, Lap2Number, cbx.Value, src.Value, Map);
         Data = readmatrix(full_filename);
         %{
         for e=1:11
@@ -96,33 +125,33 @@ while isgraphics(LapData)
             end
         end
         %}
-        updatePlot(ax, Data, LapNumber, DataType, Compare, Lap2Number, cbx.Value, distance.Value);
+        updatePlot(ax, Data, LapNumber, DataType, Compare, Lap2Number, cbx.Value, distance.Value, Map);
     else
         Data = readmatrix(full_filename);
         [M, t_last] = mylaps(Data, t_last);
-        LapNumber.ValueChangedFcn=@(src,event) lapChange(ax, Data, M, src, DataType, Compare, Lap2Number, cbx.Value, distance.Value);
-        Lap2Number.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, Compare, src, cbx.Value, distance.Value);
-        cbx.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, src.Value, distance.Value);
-        DataType.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, src, Compare, Lap2Number, cbx.Value, distance.Value);
-        Compare.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, src, Lap2Number, cbx.Value, distance.Value);
-        distance.ValueChangedFcn=@(src, event) updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, cbx.Value, src.Value);
-        updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, cbx.Value, distance.Value);
+        LapNumber.ValueChangedFcn=@(src,event) lapChange(ax, Data, M, src, DataType, Compare, Lap2Number, cbx.Value, distance.Value, Map);
+        Lap2Number.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, Compare, src, cbx.Value, distance.Value, Map);
+        cbx.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, src.Value, distance.Value, Map);
+        DataType.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, src, Compare, Lap2Number, cbx.Value, distance.Value, Map);
+        Compare.ValueChangedFcn=@(src,event) updatePlot(ax, M, LapNumber, DataType, src, Lap2Number, cbx.Value, distance.Value, Map);
+        distance.ValueChangedFcn=@(src, event) updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, cbx.Value, src.Value, Map);
+        updatePlot(ax, M, LapNumber, DataType, Compare, Lap2Number, cbx.Value, distance.Value, Map);
     end
     pause(cycle_rate);
 end
 
 
-function lapChange(ax, Data, M, src, DataType, Compare, Lap2Number, Value, vs)
+function lapChange(ax, Data, M, src, DataType, Compare, Lap2Number, Value, vs, Map)
     if src.Value == 0
-        updatePlot(ax, Data, src, DataType, Compare, Lap2Number, Value, vs)
+        updatePlot(ax, Data, src, DataType, Compare, Lap2Number, Value, vs, Map)
     else
-        updatePlot(ax, M, src, DataType, Compare, Lap2Number, Value, vs)
+        updatePlot(ax, M, src, DataType, Compare, Lap2Number, Value, vs, Map)
     end
 end
 
 
 
-function updatePlot(ax, M, src, src2, src3, src4, flag, vs)
+function updatePlot(ax, M, src, src2, src3, src4, flag, vs, Map)
     grid(ax, "on");
     lgd = legend(ax);
     xl = xlabel(ax, "");
@@ -179,7 +208,16 @@ function updatePlot(ax, M, src, src2, src3, src4, flag, vs)
 
     %Needs fixing
     if D == 5 %Position option
-        plot(ax, data(:,5),data(:,6), 'LineWidth',2.0);
+        if isempty(Map)
+            plot(ax, data(:,5),data(:,6), 'LineWidth',2.0);
+        else
+            plot(ax, data(:,5),data(:,6), 'LineWidth',2.0);
+            ax.NextPlot = "add";
+            plot(ax, Map(:,1), Map(:,2), 'Color', 'r');
+            ax.NextPlot = "add";
+            plot(ax, Map(:,3), Map(:,4), 'Color', 'r');
+            ax.NextPlot = "replacechildren";
+        end
         xl.Visible = "off";
         return
     end
@@ -288,6 +326,8 @@ end
 function fData = addData(Data)
     smallTime = Data(1,1);
     Data(:,1) = (Data(:,1) - smallTime)/1e6;
+    Data(:,5) = Data(:,5)./1000000; %to fix scale of lat
+    Data(:,6) = Data(:,6)./1000000; %to fix scale of lon
     Data(:,7) = Data(:,2).*Data(:,10); %Adding power column
     Data(:,8) = cumtrapz(Data(:,1), Data(:,7)); %Energy
     Data(:,9) = cumtrapz(Data(:,1), Data(:,4)); %Distance
