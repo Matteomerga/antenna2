@@ -4,7 +4,7 @@
 #include "RF24.h"
 #include "Arduino.h"
 
-int stampa = 0;
+bool stampa = 0;
 
 // Pin CE e CSN per il modulo RF24
 #define CE_PIN 10
@@ -22,10 +22,11 @@ bool radioNumber = 0;
 
 // Struct dati ricevuti
 struct Mystruct {
-  float velocita;
-  float voltage;
-  float current;
-  float currentMotor;
+  int velocita_gps;
+  int voltage_raw;
+  int current_raw;
+  int currentMotor_raw;
+  int tick_count;
   unsigned long int lat;
   unsigned long int lng;
   unsigned long int micro;
@@ -66,16 +67,11 @@ void loop() {
   { 
     uint8_t bytes = radio.getPayloadSize();
     radio.read(&payload, bytes);
-
-    // Invia i dati solo se il checksum è corretto
-    if (payload.verifica == checksum()) 
-    {
+    if(payload.verifica == checksum()) {
       digitalWrite(led, HIGH);
       if(stampa) stampa_dati(); 
       else Serial.write((uint8_t *)&payload, sizeof(payload)); //invia i dati al computer
       digitalWrite(led, LOW);
-
-
     }
   }
   delayMicroseconds(500);
@@ -84,19 +80,20 @@ void loop() {
 
 int checksum() {
   int micro4 = payload.micro % 10000;
-  return payload.velocita + payload.voltage + payload.current + micro4;
+  return payload.tick_count + payload.voltage_raw + payload.current_raw + micro4;
 }
 
 
 void stampa_dati()
 {
     Serial.println(F("=== Pacchetto ricevuto ==="));
-    Serial.print(F("raw verifica:   ")); Serial.println(payload.verifica);
-    Serial.print(F("velocita:       ")); Serial.println(payload.velocita, 6);
-    Serial.print(F("voltage:        ")); Serial.println(payload.voltage);
-    Serial.print(F("current:        ")); Serial.println(payload.current);
-    Serial.print(F("motor_current:        ")); Serial.println(payload.currentMotor);
-    Serial.print(F("lat (raw):      ")); Serial.println(payload.lat);
-    Serial.print(F("lng (raw):      ")); Serial.println(payload.lng);
-    Serial.print(F("micro:          ")); Serial.println(payload.micro);
+    Serial.print(F("velocita GPS:      ")); Serial.println(payload.velocita_gps , 6);
+    Serial.print(F("voltage_raw:       ")); Serial.println(payload.voltage_raw);
+    Serial.print(F("current_raw        ")); Serial.println(payload.current_raw);
+    Serial.print(F("current_motor_raw: ")); Serial.println(payload.currentMotor_raw);   
+    Serial.print(F("tick count:        ")); Serial.println(payload.tick_count);   
+    Serial.print(F("lat (raw):         ")); Serial.println(payload.lat);
+    Serial.print(F("lng (raw):         ")); Serial.println(payload.lng);
+    Serial.print(F("micro:             ")); Serial.println(payload.micro);
+    Serial.print(F("verifica:          ")); Serial.println(payload.verifica);
 }
