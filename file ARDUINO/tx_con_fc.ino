@@ -7,7 +7,6 @@
 #include <math.h>
 #include <SD.h>
 #include <SoftwareSerial.h>
-#include <TinyGPS++.h>
 #include <MAVLink.h>
 
 int block = 0;
@@ -17,12 +16,12 @@ int block = 0;
 #define CSN_PIN      9
 #define SD_CS_PIN    10
 #define ENCODER_PIN  3
-#define TX_PIN       7
+#define TX_PIN       255
 #define RX_PIN       6
 
 const int voltPin = A2;
 const int currPin = A1;
-const uint8_t curr_motorPin = A3;
+const int curr_motorPin = A3;
 
 const int pacchetti_al_secondo = 2;
 const unsigned long delta = 1000000 / pacchetti_al_secondo;
@@ -36,29 +35,19 @@ long int sumCurrentMotor_raw = 0;
 int ncampioni = 0;
 
 char dataStr[80];
-bool headerScritto = false;
 
 // Radio setup
 RF24 radio(CE_PIN, CSN_PIN);
 uint8_t address[][6] = { "1Node", "2Node" };
 bool radioNumber = 1;
 
-// GPS setup
-SoftwareSerial FCSerial(TX_PIN, RX_PIN); // RX, TX
-float heading_bussola = 0;
-float acc_Y = 0;
-float acc_X = 0;
+// FC setup
+SoftwareSerial FCSerial(RX_PIN, TX_PIN); // RX, TX
+int heading_bussola = 0;
+int acc_Y = 0;
+int acc_X = 0;
 
 // Dati per calcolo velocità
-const int n_fori = 60;
-float circonferenza = 2 * PI * 0.265;
-// volatile unsigned long lastMicrov = 0;
-// volatile unsigned long deltatv = 0;
-// volatile unsigned long currentMicrov = 0;
-// volatile unsigned long lastMicrovm = 0;
-// volatile unsigned long deltatvm = 0;
-// volatile float velocitaCalcolata = 0;
-// volatile float velocitaCalcolatam = 0;
 volatile int tick = 0;
 const unsigned long tempoMaxFermo = 1000000UL;
 int j = 0;
@@ -72,7 +61,7 @@ int fileNumber = 1;
 char fileName[15];
 
 // Struct dei dati da inviare
-struct Mystruct {
+struct Mystruct { //massimo 32 byte!!!!!!!!
   int velocita_fc;
   int voltage_raw;
   int current_raw;
@@ -136,12 +125,11 @@ void setup() {
   radio.setAutoAck(false);
   radio.setDataRate(RF24_250KBPS);
 
-  // GPS setup
+  // FC setup
   FCSerial.begin(115200);
-  Serial.println("In attesa del fix flight contorll...");
 
   // Initial payload setup
-  payload.velocita_fc = 1;
+  payload.velocita_fc = 0;
   payload.voltage_raw = 0;
   payload.current_raw = 0;
   payload.currentMotor_raw = 0;
@@ -152,7 +140,7 @@ void setup() {
 
   tara_zeroCurr();
 
-  Serial.println("Ready for the loop!");
+  Serial.println("System Ready!");
 }
 
 void loop() {
@@ -161,28 +149,8 @@ void loop() {
   if (currentMicros - previousMicros >= delta) {
     previousMicros = currentMicros;
 
-    payload.voltage_raw      = (int)round((float)sumVoltage_raw      / ncampioni);
-    payload.current_raw      = (int)round((float)sumCurrent_raw      / ncampioni);
-    payload.currentMotor_raw = (int)round((float)sumCurrentMotor_raw / ncampioni);
-    payload.tick_count       = tick;
-    payload.micro            = micros();
-    payload.verifica         = checksum();
-
-    radio.write(&payload, sizeof(payload));
-    tick = 0;
-
-    sprintf(dataStr, "%ld, %d, %d, %d, %d, %d, %ld, %ld\n",
-      payload.micro,
-      payload.voltage_raw,
-      payload.current_raw,
-      payload.currentMotor_raw,
-      payload.tick_count,
-      payload.velocita_fc,
-      payload.lat,
-      payload.lng
-    );
-
-    dataFile.print(dataStr);
+    manda_dati_antenna();
+    salva_dati_sd();
 
     if (i >= pacchetti_al_secondo) {
       stampa1();
@@ -193,6 +161,7 @@ void loop() {
     }
     i++;
 
+    tick = 0;
     ncampioni = 0;
     sumVoltage_raw = 0;
     sumCurrent_raw = 0;
@@ -204,7 +173,42 @@ void loop() {
   sumCurrent_raw      += (analogRead(currPin) * 10 - zeroCurr);
   sumCurrentMotor_raw += (analogRead(curr_motorPin) * 10 - zeroCurrMotor);
 
+  leggi_seriale();
+}
 
+
+void manda_dati_antenna() {
+  payload.voltage_raw      = (int)round((float)sumVoltage_raw      / ncampioni);
+  payload.current_raw      = (int)round((float)sumCurrent_raw      / ncampioni);
+  payload.currentMotor_raw = (int)round((float)sumCurrentMotor_raw / ncampioni);
+  payload.tick_count       = tick;
+  payload.micro            = micros();
+  payload.verifica         = checksum();
+
+  radio.write(&payload, sizeof(payload));
+}
+
+
+void salva_dati_sd() {
+  sprintf(dataStr, "%ld, %d, %d, %d, %d, %d, %ld, %ld, %d, %d, %d\n",
+  payload.micro,
+  payload.voltage_raw,
+  payload.current_raw,
+  payload.currentMotor_raw,
+  payload.tick_count,
+  payload.velocita_fc,
+  payload.lat,
+  payload.lng,
+  acc_X,
+  acc_Y,
+  heading_bussola
+  );
+
+  dataFile.print(dataStr);
+}
+
+
+void leggi_seriale() {
   while (FCSerial.available() > 0) {
     uint8_t c = FCSerial.read();
     
@@ -225,10 +229,9 @@ void loop() {
           
           float vel_Nord = packet.vx; 
           float vel_Est  = packet.vy;
-          payload.velocita_fc = sqrt(pow(vel_Nord, 2) + pow(vel_Est, 2));
-          heading_bussola = packet.hdg / 100.0;
+          payload.velocita_fc = (int)round(sqrt(pow(vel_Nord, 2) + pow(vel_Est, 2)));
+          heading_bussola = (int)round((float)packet.hdg / 10.0);
 
-          stampa4();
           break;
         }
 
@@ -237,11 +240,10 @@ void loop() {
           mavlink_raw_imu_t imu;
           mavlink_msg_raw_imu_decode(&msg, &imu);
           
-          // Conversione in m/s² (ArduPilot invia milli-g nell'ID 27)
-          acc_X = (imu.xacc / 1000.0) * 9.81; 
-          acc_Y = (imu.yacc / 1000.0) * 9.81; 
+          // Conversione in cm/s² 
+          acc_X = (int)round((float)(imu.xacc / 10.0) * 9.81); 
+          acc_Y = (int)round((float)(imu.yacc / 10.0) * 9.81); 
 
-          stampa5();
           break;
         }
         default:
@@ -251,44 +253,17 @@ void loop() {
   }
 }
 
+
 int checksum() {
   int micro4 = payload.micro % 10000;
   return payload.tick_count + payload.voltage_raw + payload.current_raw + micro4;
 }
 
-// void calcolaVelocita() {
-//   currentMicrov = micros();
-//   deltatv = currentMicrov - lastMicrov;
-//   lastMicrov = currentMicrov;
-//   velocitaCalcolata = ((circonferenza / (float)n_fori) / (float)deltatv) * 1e6;
-
-//   j++;
-//   if (j == n_media) {
-//     j = 0;
-//     deltatvm = currentMicrov - lastMicrovm;
-//     lastMicrovm = currentMicrov;
-//     velocitaCalcolatam = (circonferenza / n_fori) / deltatvm * 1e6 * n_media;
-//   }
-// }
-
-// void calcolaFrequenza() {
-//   currentMicrov = micros();
-//   deltatv = currentMicrov - lastMicrov;
-//   lastMicrov = currentMicrov;
-//   velocitaCalcolata = (1 / ((float)deltatv / 1e6));
-
-//   j++;
-//   if (j == n_media) {
-//     j = 0;
-//     deltatvm = currentMicrov - lastMicrovm;
-//     lastMicrovm = currentMicrov;
-//     velocitaCalcolatam = (1 / ((float)deltatvm / 1e6 / (float)n_media));
-//   }
-// }
 
 void contaTick(){
   tick++;
 }
+
 
 void tara_zeroCurr() {
   for (int i = 0; i < 3000; i++) {
@@ -301,20 +276,6 @@ void tara_zeroCurr() {
   zeroCurrMotor = zeroCurrMotor / 3000 * 10;
 }
 
-/*void scriviHeader() {
-  char header[40];
-  sprintf(header, "DATA: %04d-%02d-%02d %02d:%02d:%02d,0,0,0,0,0,0\n",
-    gps.date.year(),
-    gps.date.month(),
-    gps.date.day(),
-    gps.time.hour(),
-    gps.time.minute(),
-    gps.time.second()
-  );
-  dataFile.print(header);
-  headerScritto = true;
-}
-*/
 
 void stampa1() {
   Serial.println(F("=== Pacchetto inviato ==="));
@@ -330,6 +291,7 @@ void stampa1() {
   Serial.print(F("zerocurrmotor:          ")); Serial.println(zeroCurrMotor);
 }
 
+
 void stampa2() {
   Serial.println(F("=== valori letti ==="));
   Serial.print(F("tensione raw:       ")); Serial.println(analogRead(voltPin));
@@ -339,22 +301,17 @@ void stampa2() {
   Serial.print(F("current:            ")); Serial.println(payload.current_raw);
 }
 
+
 void stampa4() {
-          Serial.println("\n[GPS/EKF] -------------------------------------");
-          Serial.print(" Posizione: "); Serial.print(payload.lat); Serial.print(", "); Serial.println(payload.lng);
-          Serial.print(" Velocità Direzionale: "); Serial.print(payload.velocita_fc/100, 2); Serial.println(" m/s");
-          Serial.print(" Heading Bussola: "); Serial.print(heading_bussola, 1); Serial.println("°");
+  Serial.println("\n[GPS/EKF] -------------------------------------");
+  Serial.print(" Posizione: "); Serial.print(payload.lat); Serial.print(", "); Serial.println(payload.lng);
+  Serial.print(" Velocità Direzionale: "); Serial.print(payload.velocita_fc/100, 2); Serial.println(" m/s");
+  Serial.print(" Heading Bussola: "); Serial.print(heading_bussola, 1); Serial.println("°");
 }
+
 
 void stampa5() {
-          Serial.println("[IMU SENSOR] ----------------------------------");
-          Serial.print(" Accel Lineare -> X (Avanti): "); Serial.print(acc_X, 2);
-          Serial.print(" | Y (Laterale): "); Serial.println(acc_Y, 2);
+  Serial.println("[IMU SENSOR] ----------------------------------");
+  Serial.print(" Accel Lineare -> X (Avanti): "); Serial.print(acc_X, 2);
+  Serial.print(" | Y (Laterale): "); Serial.println(acc_Y, 2);
 }
-
-// void stampa3() {
-//   Serial.println(F("=== valori velocita ==="));
-//   Serial.print(F("Velocità: ")); Serial.println(velocitaCalcolata);
-//   Serial.print(F(" - Media: ")); Serial.println(velocitaCalcolatam);
-//   Serial.print(F(" - GPS:   ")); Serial.println(payload.velocita_gps);
-// }
