@@ -148,7 +148,8 @@ void loop() {
 
   if (currentMicros - previousMicros >= delta) {
     previousMicros = currentMicros;
-
+    
+    leggi_seriale();
     manda_dati_antenna();
     salva_dati_sd();
 
@@ -173,7 +174,7 @@ void loop() {
   sumCurrent_raw      += (analogRead(currPin) * 10 - zeroCurr);
   sumCurrentMotor_raw += (analogRead(curr_motorPin) * 10 - zeroCurrMotor);
 
-  leggi_seriale();
+
 }
 
 
